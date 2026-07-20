@@ -155,10 +155,17 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       Float_t dmu_dsa_eta[200] = {0.};
       Float_t dmu_dsa_phi[200] = {0.};
       Float_t dmu_dsa_ptError[200] = {0.};
+      Float_t dmu_dsa_p[200] = {0.};
+      Float_t dmu_dsa_qoverp[200] = {0.};
+      Float_t dmu_dsa_qoverpError[200] = {0.};
       Float_t dmu_dsa_dxy[200] = {0.};
       Float_t dmu_dsa_dz[200] = {0.};
+      Float_t dmu_dsa_refx[200] = {0.};
+      Float_t dmu_dsa_refy[200] = {0.};
+      Float_t dmu_dsa_refz[200] = {0.};
       Float_t dmu_dsa_normalizedChi2[200] = {0.};
       Float_t dmu_dsa_charge[200] = {0.};
+      Int_t dmu_dsa_side[200] = {0};
       Int_t dmu_dsa_nMuonHits[200] = {0};
       Int_t dmu_dsa_nValidMuonHits[200] = {0};
       Int_t dmu_dsa_nValidMuonDTHits[200] = {0};
@@ -174,6 +181,14 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       bool dmu_dsa_hasProbe[200] = {false};
       Int_t dmu_dsa_probeID[200] = {0};
       Float_t dmu_dsa_cosAlpha[200] = {0.};
+
+      Int_t evt_dsa_nReco = 0;
+      Float_t evt_dsa_pt_1 = 0.;
+      Float_t evt_dsa_pt_2 = 0.;
+      Float_t evt_dsa_absqoverpt_1 = 0.;
+      Float_t evt_dsa_absqoverpt_2 = 0.;
+      Float_t evt_dsa_pt_asymmetry = 0.;
+      Float_t evt_dsa_cosAlpha_12 = 0.;
 
       Float_t dmu_dgl_pt[200] = {0.};
       Float_t dmu_dgl_eta[200] = {0.};
@@ -285,10 +300,17 @@ void ntuplizer::beginJob() {
    tree_out->Branch("dmu_dsa_eta", dmu_dsa_eta, "dmu_dsa_eta[ndmu]/F");
    tree_out->Branch("dmu_dsa_phi", dmu_dsa_phi, "dmu_dsa_phi[ndmu]/F");
    tree_out->Branch("dmu_dsa_ptError", dmu_dsa_ptError, "dmu_dsa_ptError[ndmu]/F");
+   tree_out->Branch("dmu_dsa_p", dmu_dsa_p, "dmu_dsa_p[ndmu]/F");
+   tree_out->Branch("dmu_dsa_qoverp", dmu_dsa_qoverp, "dmu_dsa_qoverp[ndmu]/F");
+   tree_out->Branch("dmu_dsa_qoverpError", dmu_dsa_qoverpError, "dmu_dsa_qoverpError[ndmu]/F");
    tree_out->Branch("dmu_dsa_dxy", dmu_dsa_dxy, "dmu_dsa_dxy[ndmu]/F");
    tree_out->Branch("dmu_dsa_dz", dmu_dsa_dz, "dmu_dsa_dz[ndmu]/F");
+   tree_out->Branch("dmu_dsa_refx", dmu_dsa_refx, "dmu_dsa_refx[ndmu]/F");
+   tree_out->Branch("dmu_dsa_refy", dmu_dsa_refy, "dmu_dsa_refy[ndmu]/F");
+   tree_out->Branch("dmu_dsa_refz", dmu_dsa_refz, "dmu_dsa_refz[ndmu]/F");
    tree_out->Branch("dmu_dsa_normalizedChi2", dmu_dsa_normalizedChi2, "dmu_dsa_normalizedChi2[ndmu]/F");
    tree_out->Branch("dmu_dsa_charge", dmu_dsa_charge, "dmu_dsa_charge[ndmu]/F");
+   tree_out->Branch("dmu_dsa_side", dmu_dsa_side, "dmu_dsa_side[ndmu]/I");
    tree_out->Branch("dmu_dsa_nMuonHits", dmu_dsa_nMuonHits, "dmu_dsa_nMuonHits[ndmu]/I");
    tree_out->Branch("dmu_dsa_nValidMuonHits", dmu_dsa_nValidMuonHits, "dmu_dsa_nValidMuonHits[ndmu]/I");
    tree_out->Branch("dmu_dsa_nValidMuonDTHits", dmu_dsa_nValidMuonDTHits, "dmu_dsa_nValidMuonDTHits[ndmu]/I");
@@ -303,6 +325,13 @@ void ntuplizer::beginJob() {
    tree_out->Branch("dmu_dsa_hasProbe", dmu_dsa_hasProbe, "dmu_dsa_hasProbe[ndmu]/O");
    tree_out->Branch("dmu_dsa_probeID", dmu_dsa_probeID, "dmu_dsa_probeID[ndmu]/I");
    tree_out->Branch("dmu_dsa_cosAlpha", dmu_dsa_cosAlpha, "dmu_dsa_cosAlpha[ndmu]/F");
+   tree_out->Branch("evt_dsa_nReco", &evt_dsa_nReco, "evt_dsa_nReco/I");
+   tree_out->Branch("evt_dsa_pt_1", &evt_dsa_pt_1, "evt_dsa_pt_1/F");
+   tree_out->Branch("evt_dsa_pt_2", &evt_dsa_pt_2, "evt_dsa_pt_2/F");
+   tree_out->Branch("evt_dsa_absqoverpt_1", &evt_dsa_absqoverpt_1, "evt_dsa_absqoverpt_1/F");
+   tree_out->Branch("evt_dsa_absqoverpt_2", &evt_dsa_absqoverpt_2, "evt_dsa_absqoverpt_2/F");
+   tree_out->Branch("evt_dsa_pt_asymmetry", &evt_dsa_pt_asymmetry, "evt_dsa_pt_asymmetry/F");
+   tree_out->Branch("evt_dsa_cosAlpha_12", &evt_dsa_cosAlpha_12, "evt_dsa_cosAlpha_12/F");
    // dmu_dgl
    tree_out->Branch("dmu_dgl_pt", dmu_dgl_pt, "dmu_dgl_pt[ndmu]/F");
    tree_out->Branch("dmu_dgl_eta", dmu_dgl_eta, "dmu_dgl_eta[ndmu]/F");
@@ -374,6 +403,13 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    // displacedMuons Collection
    // ----------------------------------
    ndmu = 0;
+   evt_dsa_nReco = 0;
+   evt_dsa_pt_1 = 0.;
+   evt_dsa_pt_2 = 0.;
+   evt_dsa_absqoverpt_1 = 0.;
+   evt_dsa_absqoverpt_2 = 0.;
+   evt_dsa_pt_asymmetry = 0.;
+   evt_dsa_cosAlpha_12 = 0.;
    for (unsigned int i = 0; i < dmuons->size(); i++) {
      //std::cout << " - - ndmu: " << ndmu << std::endl;
      const reco::Muon& dmuon(dmuons->at(i));
@@ -432,10 +468,17 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        dmu_dsa_eta[ndmu] = outerTrack->eta();
        dmu_dsa_phi[ndmu] = outerTrack->phi();
        dmu_dsa_ptError[ndmu] = outerTrack->ptError();
+       dmu_dsa_p[ndmu] = outerTrack->p();
+       dmu_dsa_qoverp[ndmu] = outerTrack->qoverp();
+       dmu_dsa_qoverpError[ndmu] = outerTrack->qoverpError();
        dmu_dsa_dxy[ndmu] = outerTrack->dxy();
        dmu_dsa_dz[ndmu] = outerTrack->dz();
+       dmu_dsa_refx[ndmu] = outerTrack->referencePoint().x();
+       dmu_dsa_refy[ndmu] = outerTrack->referencePoint().y();
+       dmu_dsa_refz[ndmu] = outerTrack->referencePoint().z();
        dmu_dsa_normalizedChi2[ndmu] = outerTrack->normalizedChi2();
        dmu_dsa_charge[ndmu] = outerTrack->charge();
+       dmu_dsa_side[ndmu] = (outerTrack->phi() >= 0.f ? 1 : -1);
        dmu_dsa_nMuonHits[ndmu] = outerTrack->hitPattern().numberOfMuonHits();
        dmu_dsa_nValidMuonHits[ndmu] = outerTrack->hitPattern().numberOfValidMuonHits();
        dmu_dsa_nValidMuonDTHits[ndmu] = outerTrack->hitPattern().numberOfValidMuonDTHits();
@@ -463,10 +506,17 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        dmu_dsa_eta[ndmu] = 0;
        dmu_dsa_phi[ndmu] = 0;
        dmu_dsa_ptError[ndmu] = 0;
+       dmu_dsa_p[ndmu] = 0;
+       dmu_dsa_qoverp[ndmu] = 0;
+       dmu_dsa_qoverpError[ndmu] = 0;
        dmu_dsa_dxy[ndmu] = 0;
        dmu_dsa_dz[ndmu] = 0;
+       dmu_dsa_refx[ndmu] = 0;
+       dmu_dsa_refy[ndmu] = 0;
+       dmu_dsa_refz[ndmu] = 0;
        dmu_dsa_normalizedChi2[ndmu] = 0;
        dmu_dsa_charge[ndmu] = 0;
+       dmu_dsa_side[ndmu] = 0;
        dmu_dsa_nMuonHits[ndmu] = 0;
        dmu_dsa_nValidMuonHits[ndmu] = 0;
        dmu_dsa_nValidMuonDTHits[ndmu] = 0;
@@ -481,6 +531,30 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
      ndmu++;
      //std::cout << "End muon" << std::endl;
+   }
+
+   std::vector<int> dsaRecoIndices;
+   for (int i = 0; i < ndmu; ++i) {
+     if (dmu_isDSA[i]) {
+       dsaRecoIndices.push_back(i);
+     }
+   }
+
+   evt_dsa_nReco = static_cast<Int_t>(dsaRecoIndices.size());
+   if (evt_dsa_nReco == 2) {
+     const int idx1 = dsaRecoIndices[0];
+     const int idx2 = dsaRecoIndices[1];
+     evt_dsa_pt_1 = dmu_dsa_pt[idx1];
+     evt_dsa_pt_2 = dmu_dsa_pt[idx2];
+     evt_dsa_absqoverpt_1 = (dmu_dsa_pt[idx1] != 0.f ? std::abs(dmu_dsa_charge[idx1] / dmu_dsa_pt[idx1]) : 0.f);
+     evt_dsa_absqoverpt_2 = (dmu_dsa_pt[idx2] != 0.f ? std::abs(dmu_dsa_charge[idx2] / dmu_dsa_pt[idx2]) : 0.f);
+     const float ptSum = evt_dsa_pt_1 + evt_dsa_pt_2;
+     evt_dsa_pt_asymmetry = (ptSum != 0.f ? (evt_dsa_pt_2 - evt_dsa_pt_1) / ptSum : 0.f);
+     TVector3 v1 = TVector3();
+     TVector3 v2 = TVector3();
+     v1.SetPtEtaPhi(dmu_dsa_pt[idx1], dmu_dsa_eta[idx1], dmu_dsa_phi[idx1]);
+     v2.SetPtEtaPhi(dmu_dsa_pt[idx2], dmu_dsa_eta[idx2], dmu_dsa_phi[idx2]);
+     evt_dsa_cosAlpha_12 = cos(v1.Angle(v2));
    }
 
    // ----------------------------------
