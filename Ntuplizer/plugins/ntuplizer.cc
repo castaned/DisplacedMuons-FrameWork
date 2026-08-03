@@ -23,6 +23,7 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
 #include <string>
+#include <cmath>
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -158,13 +159,21 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       Float_t dmu_dsa_p[200] = {0.};
       Float_t dmu_dsa_qoverp[200] = {0.};
       Float_t dmu_dsa_qoverpError[200] = {0.};
+      Float_t dmu_dsa_qoverpt[200] = {0.};
       Float_t dmu_dsa_dxy[200] = {0.};
       Float_t dmu_dsa_dz[200] = {0.};
       Float_t dmu_dsa_refx[200] = {0.};
       Float_t dmu_dsa_refy[200] = {0.};
       Float_t dmu_dsa_refz[200] = {0.};
+      Float_t dmu_dsa_innerx[200] = {0.};
+      Float_t dmu_dsa_innery[200] = {0.};
+      Float_t dmu_dsa_innerz[200] = {0.};
+      Float_t dmu_dsa_outerx[200] = {0.};
+      Float_t dmu_dsa_outery[200] = {0.};
+      Float_t dmu_dsa_outerz[200] = {0.};
       Float_t dmu_dsa_normalizedChi2[200] = {0.};
       Float_t dmu_dsa_charge[200] = {0.};
+      Int_t dmu_dsa_collectionIndex[200] = {0};
       Int_t dmu_dsa_side[200] = {0};
       Int_t dmu_dsa_nMuonHits[200] = {0};
       Int_t dmu_dsa_nValidMuonHits[200] = {0};
@@ -185,10 +194,27 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       Int_t evt_dsa_nReco = 0;
       Float_t evt_dsa_pt_1 = 0.;
       Float_t evt_dsa_pt_2 = 0.;
+      Int_t evt_dsa_index_1 = -1;
+      Int_t evt_dsa_index_2 = -1;
+      Int_t evt_dsa_side_1 = 0;
+      Int_t evt_dsa_side_2 = 0;
       Float_t evt_dsa_absqoverpt_1 = 0.;
       Float_t evt_dsa_absqoverpt_2 = 0.;
+      Float_t evt_dsa_qoverpt_1 = 0.;
+      Float_t evt_dsa_qoverpt_2 = 0.;
       Float_t evt_dsa_pt_asymmetry = 0.;
+      Float_t evt_dsa_abs_pt_asymmetry = 0.;
       Float_t evt_dsa_cosAlpha_12 = 0.;
+      Float_t evt_dsa_residual_12 = 0.;
+      Float_t evt_dsa_residual_21 = 0.;
+      bool evt_dsa_oppositeSides = false;
+      Int_t evt_dsa_index_upper = -1;
+      Int_t evt_dsa_index_lower = -1;
+      Float_t evt_dsa_pt_upper = 0.;
+      Float_t evt_dsa_pt_lower = 0.;
+      Float_t evt_dsa_qoverpt_upper = 0.;
+      Float_t evt_dsa_qoverpt_lower = 0.;
+      Float_t evt_dsa_residual_lower_upper = 0.;
 
       Float_t dmu_dgl_pt[200] = {0.};
       Float_t dmu_dgl_eta[200] = {0.};
@@ -303,13 +329,21 @@ void ntuplizer::beginJob() {
    tree_out->Branch("dmu_dsa_p", dmu_dsa_p, "dmu_dsa_p[ndmu]/F");
    tree_out->Branch("dmu_dsa_qoverp", dmu_dsa_qoverp, "dmu_dsa_qoverp[ndmu]/F");
    tree_out->Branch("dmu_dsa_qoverpError", dmu_dsa_qoverpError, "dmu_dsa_qoverpError[ndmu]/F");
+   tree_out->Branch("dmu_dsa_qoverpt", dmu_dsa_qoverpt, "dmu_dsa_qoverpt[ndmu]/F");
    tree_out->Branch("dmu_dsa_dxy", dmu_dsa_dxy, "dmu_dsa_dxy[ndmu]/F");
    tree_out->Branch("dmu_dsa_dz", dmu_dsa_dz, "dmu_dsa_dz[ndmu]/F");
    tree_out->Branch("dmu_dsa_refx", dmu_dsa_refx, "dmu_dsa_refx[ndmu]/F");
    tree_out->Branch("dmu_dsa_refy", dmu_dsa_refy, "dmu_dsa_refy[ndmu]/F");
    tree_out->Branch("dmu_dsa_refz", dmu_dsa_refz, "dmu_dsa_refz[ndmu]/F");
+   tree_out->Branch("dmu_dsa_innerx", dmu_dsa_innerx, "dmu_dsa_innerx[ndmu]/F");
+   tree_out->Branch("dmu_dsa_innery", dmu_dsa_innery, "dmu_dsa_innery[ndmu]/F");
+   tree_out->Branch("dmu_dsa_innerz", dmu_dsa_innerz, "dmu_dsa_innerz[ndmu]/F");
+   tree_out->Branch("dmu_dsa_outerx", dmu_dsa_outerx, "dmu_dsa_outerx[ndmu]/F");
+   tree_out->Branch("dmu_dsa_outery", dmu_dsa_outery, "dmu_dsa_outery[ndmu]/F");
+   tree_out->Branch("dmu_dsa_outerz", dmu_dsa_outerz, "dmu_dsa_outerz[ndmu]/F");
    tree_out->Branch("dmu_dsa_normalizedChi2", dmu_dsa_normalizedChi2, "dmu_dsa_normalizedChi2[ndmu]/F");
    tree_out->Branch("dmu_dsa_charge", dmu_dsa_charge, "dmu_dsa_charge[ndmu]/F");
+   tree_out->Branch("dmu_dsa_collectionIndex", dmu_dsa_collectionIndex, "dmu_dsa_collectionIndex[ndmu]/I");
    tree_out->Branch("dmu_dsa_side", dmu_dsa_side, "dmu_dsa_side[ndmu]/I");
    tree_out->Branch("dmu_dsa_nMuonHits", dmu_dsa_nMuonHits, "dmu_dsa_nMuonHits[ndmu]/I");
    tree_out->Branch("dmu_dsa_nValidMuonHits", dmu_dsa_nValidMuonHits, "dmu_dsa_nValidMuonHits[ndmu]/I");
@@ -328,10 +362,27 @@ void ntuplizer::beginJob() {
    tree_out->Branch("evt_dsa_nReco", &evt_dsa_nReco, "evt_dsa_nReco/I");
    tree_out->Branch("evt_dsa_pt_1", &evt_dsa_pt_1, "evt_dsa_pt_1/F");
    tree_out->Branch("evt_dsa_pt_2", &evt_dsa_pt_2, "evt_dsa_pt_2/F");
+   tree_out->Branch("evt_dsa_index_1", &evt_dsa_index_1, "evt_dsa_index_1/I");
+   tree_out->Branch("evt_dsa_index_2", &evt_dsa_index_2, "evt_dsa_index_2/I");
+   tree_out->Branch("evt_dsa_side_1", &evt_dsa_side_1, "evt_dsa_side_1/I");
+   tree_out->Branch("evt_dsa_side_2", &evt_dsa_side_2, "evt_dsa_side_2/I");
    tree_out->Branch("evt_dsa_absqoverpt_1", &evt_dsa_absqoverpt_1, "evt_dsa_absqoverpt_1/F");
    tree_out->Branch("evt_dsa_absqoverpt_2", &evt_dsa_absqoverpt_2, "evt_dsa_absqoverpt_2/F");
+   tree_out->Branch("evt_dsa_qoverpt_1", &evt_dsa_qoverpt_1, "evt_dsa_qoverpt_1/F");
+   tree_out->Branch("evt_dsa_qoverpt_2", &evt_dsa_qoverpt_2, "evt_dsa_qoverpt_2/F");
    tree_out->Branch("evt_dsa_pt_asymmetry", &evt_dsa_pt_asymmetry, "evt_dsa_pt_asymmetry/F");
+   tree_out->Branch("evt_dsa_abs_pt_asymmetry", &evt_dsa_abs_pt_asymmetry, "evt_dsa_abs_pt_asymmetry/F");
    tree_out->Branch("evt_dsa_cosAlpha_12", &evt_dsa_cosAlpha_12, "evt_dsa_cosAlpha_12/F");
+   tree_out->Branch("evt_dsa_residual_12", &evt_dsa_residual_12, "evt_dsa_residual_12/F");
+   tree_out->Branch("evt_dsa_residual_21", &evt_dsa_residual_21, "evt_dsa_residual_21/F");
+   tree_out->Branch("evt_dsa_oppositeSides", &evt_dsa_oppositeSides, "evt_dsa_oppositeSides/O");
+   tree_out->Branch("evt_dsa_index_upper", &evt_dsa_index_upper, "evt_dsa_index_upper/I");
+   tree_out->Branch("evt_dsa_index_lower", &evt_dsa_index_lower, "evt_dsa_index_lower/I");
+   tree_out->Branch("evt_dsa_pt_upper", &evt_dsa_pt_upper, "evt_dsa_pt_upper/F");
+   tree_out->Branch("evt_dsa_pt_lower", &evt_dsa_pt_lower, "evt_dsa_pt_lower/F");
+   tree_out->Branch("evt_dsa_qoverpt_upper", &evt_dsa_qoverpt_upper, "evt_dsa_qoverpt_upper/F");
+   tree_out->Branch("evt_dsa_qoverpt_lower", &evt_dsa_qoverpt_lower, "evt_dsa_qoverpt_lower/F");
+   tree_out->Branch("evt_dsa_residual_lower_upper", &evt_dsa_residual_lower_upper, "evt_dsa_residual_lower_upper/F");
    // dmu_dgl
    tree_out->Branch("dmu_dgl_pt", dmu_dgl_pt, "dmu_dgl_pt[ndmu]/F");
    tree_out->Branch("dmu_dgl_eta", dmu_dgl_eta, "dmu_dgl_eta[ndmu]/F");
@@ -406,11 +457,29 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    evt_dsa_nReco = 0;
    evt_dsa_pt_1 = 0.;
    evt_dsa_pt_2 = 0.;
+   evt_dsa_index_1 = -1;
+   evt_dsa_index_2 = -1;
+   evt_dsa_side_1 = 0;
+   evt_dsa_side_2 = 0;
    evt_dsa_absqoverpt_1 = 0.;
    evt_dsa_absqoverpt_2 = 0.;
+   evt_dsa_qoverpt_1 = 0.;
+   evt_dsa_qoverpt_2 = 0.;
    evt_dsa_pt_asymmetry = 0.;
+   evt_dsa_abs_pt_asymmetry = 0.;
    evt_dsa_cosAlpha_12 = 0.;
+   evt_dsa_residual_12 = 0.;
+   evt_dsa_residual_21 = 0.;
+   evt_dsa_oppositeSides = false;
+   evt_dsa_index_upper = -1;
+   evt_dsa_index_lower = -1;
+   evt_dsa_pt_upper = 0.;
+   evt_dsa_pt_lower = 0.;
+   evt_dsa_qoverpt_upper = 0.;
+   evt_dsa_qoverpt_lower = 0.;
+   evt_dsa_residual_lower_upper = 0.;
    for (unsigned int i = 0; i < dmuons->size(); i++) {
+     if (ndmu >= 200) break;
      //std::cout << " - - ndmu: " << ndmu << std::endl;
      const reco::Muon& dmuon(dmuons->at(i));
      dmu_isDGL[ndmu] = dmuon.isGlobalMuon();
@@ -471,6 +540,7 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        dmu_dsa_p[ndmu] = outerTrack->p();
        dmu_dsa_qoverp[ndmu] = outerTrack->qoverp();
        dmu_dsa_qoverpError[ndmu] = outerTrack->qoverpError();
+       dmu_dsa_qoverpt[ndmu] = outerTrack->qoverp() * std::cosh(outerTrack->eta());
        dmu_dsa_dxy[ndmu] = outerTrack->dxy();
        dmu_dsa_dz[ndmu] = outerTrack->dz();
        dmu_dsa_refx[ndmu] = outerTrack->referencePoint().x();
@@ -478,7 +548,24 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        dmu_dsa_refz[ndmu] = outerTrack->referencePoint().z();
        dmu_dsa_normalizedChi2[ndmu] = outerTrack->normalizedChi2();
        dmu_dsa_charge[ndmu] = outerTrack->charge();
-       dmu_dsa_side[ndmu] = (outerTrack->phi() >= 0.f ? 1 : -1);
+       dmu_dsa_collectionIndex[ndmu] = static_cast<Int_t>(i);
+       dmu_dsa_innerx[ndmu] = 0.f;
+       dmu_dsa_innery[ndmu] = 0.f;
+       dmu_dsa_innerz[ndmu] = 0.f;
+       dmu_dsa_outerx[ndmu] = 0.f;
+       dmu_dsa_outery[ndmu] = 0.f;
+       dmu_dsa_outerz[ndmu] = 0.f;
+       dmu_dsa_side[ndmu] = 0;
+       if (outerTrack->extra().isNonnull() && outerTrack->extra().isAvailable()) {
+         dmu_dsa_innerx[ndmu] = outerTrack->innerPosition().x();
+         dmu_dsa_innery[ndmu] = outerTrack->innerPosition().y();
+         dmu_dsa_innerz[ndmu] = outerTrack->innerPosition().z();
+         dmu_dsa_outerx[ndmu] = outerTrack->outerPosition().x();
+         dmu_dsa_outery[ndmu] = outerTrack->outerPosition().y();
+         dmu_dsa_outerz[ndmu] = outerTrack->outerPosition().z();
+         const float midpointY = 0.5f * (dmu_dsa_innery[ndmu] + dmu_dsa_outery[ndmu]);
+         dmu_dsa_side[ndmu] = (midpointY > 0.f ? 1 : (midpointY < 0.f ? -1 : 0));
+       }
        dmu_dsa_nMuonHits[ndmu] = outerTrack->hitPattern().numberOfMuonHits();
        dmu_dsa_nValidMuonHits[ndmu] = outerTrack->hitPattern().numberOfValidMuonHits();
        dmu_dsa_nValidMuonDTHits[ndmu] = outerTrack->hitPattern().numberOfValidMuonDTHits();
@@ -509,13 +596,21 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        dmu_dsa_p[ndmu] = 0;
        dmu_dsa_qoverp[ndmu] = 0;
        dmu_dsa_qoverpError[ndmu] = 0;
+       dmu_dsa_qoverpt[ndmu] = 0;
        dmu_dsa_dxy[ndmu] = 0;
        dmu_dsa_dz[ndmu] = 0;
        dmu_dsa_refx[ndmu] = 0;
        dmu_dsa_refy[ndmu] = 0;
        dmu_dsa_refz[ndmu] = 0;
+       dmu_dsa_innerx[ndmu] = 0;
+       dmu_dsa_innery[ndmu] = 0;
+       dmu_dsa_innerz[ndmu] = 0;
+       dmu_dsa_outerx[ndmu] = 0;
+       dmu_dsa_outery[ndmu] = 0;
+       dmu_dsa_outerz[ndmu] = 0;
        dmu_dsa_normalizedChi2[ndmu] = 0;
        dmu_dsa_charge[ndmu] = 0;
+       dmu_dsa_collectionIndex[ndmu] = -1;
        dmu_dsa_side[ndmu] = 0;
        dmu_dsa_nMuonHits[ndmu] = 0;
        dmu_dsa_nValidMuonHits[ndmu] = 0;
@@ -544,17 +639,42 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    if (evt_dsa_nReco == 2) {
      const int idx1 = dsaRecoIndices[0];
      const int idx2 = dsaRecoIndices[1];
+     evt_dsa_index_1 = dmu_dsa_collectionIndex[idx1];
+     evt_dsa_index_2 = dmu_dsa_collectionIndex[idx2];
+     evt_dsa_side_1 = dmu_dsa_side[idx1];
+     evt_dsa_side_2 = dmu_dsa_side[idx2];
      evt_dsa_pt_1 = dmu_dsa_pt[idx1];
      evt_dsa_pt_2 = dmu_dsa_pt[idx2];
      evt_dsa_absqoverpt_1 = (dmu_dsa_pt[idx1] != 0.f ? std::abs(dmu_dsa_charge[idx1] / dmu_dsa_pt[idx1]) : 0.f);
      evt_dsa_absqoverpt_2 = (dmu_dsa_pt[idx2] != 0.f ? std::abs(dmu_dsa_charge[idx2] / dmu_dsa_pt[idx2]) : 0.f);
+     evt_dsa_qoverpt_1 = dmu_dsa_qoverpt[idx1];
+     evt_dsa_qoverpt_2 = dmu_dsa_qoverpt[idx2];
      const float ptSum = evt_dsa_pt_1 + evt_dsa_pt_2;
      evt_dsa_pt_asymmetry = (ptSum != 0.f ? (evt_dsa_pt_2 - evt_dsa_pt_1) / ptSum : 0.f);
+     evt_dsa_abs_pt_asymmetry = std::abs(evt_dsa_pt_asymmetry);
+     evt_dsa_residual_12 = (evt_dsa_qoverpt_1 != 0.f ?
+       (evt_dsa_qoverpt_2 - evt_dsa_qoverpt_1) / evt_dsa_qoverpt_1 : 0.f);
+     evt_dsa_residual_21 = (evt_dsa_qoverpt_2 != 0.f ?
+       (evt_dsa_qoverpt_1 - evt_dsa_qoverpt_2) / evt_dsa_qoverpt_2 : 0.f);
      TVector3 v1 = TVector3();
      TVector3 v2 = TVector3();
      v1.SetPtEtaPhi(dmu_dsa_pt[idx1], dmu_dsa_eta[idx1], dmu_dsa_phi[idx1]);
      v2.SetPtEtaPhi(dmu_dsa_pt[idx2], dmu_dsa_eta[idx2], dmu_dsa_phi[idx2]);
      evt_dsa_cosAlpha_12 = cos(v1.Angle(v2));
+
+     evt_dsa_oppositeSides = (evt_dsa_side_1 * evt_dsa_side_2 == -1);
+     if (evt_dsa_oppositeSides) {
+       const int upperIdx = (evt_dsa_side_1 == 1 ? idx1 : idx2);
+       const int lowerIdx = (evt_dsa_side_1 == -1 ? idx1 : idx2);
+       evt_dsa_index_upper = upperIdx;
+       evt_dsa_index_lower = lowerIdx;
+       evt_dsa_pt_upper = dmu_dsa_pt[upperIdx];
+       evt_dsa_pt_lower = dmu_dsa_pt[lowerIdx];
+       evt_dsa_qoverpt_upper = dmu_dsa_qoverpt[upperIdx];
+       evt_dsa_qoverpt_lower = dmu_dsa_qoverpt[lowerIdx];
+       evt_dsa_residual_lower_upper = (evt_dsa_qoverpt_upper != 0.f ?
+         (evt_dsa_qoverpt_lower - evt_dsa_qoverpt_upper) / evt_dsa_qoverpt_upper : 0.f);
+     }
    }
 
    // ----------------------------------
@@ -562,6 +682,7 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    // ----------------------------------
    ndmu = 0;
    for (unsigned int i = 0; i < dmuons->size(); i++) {
+     if (ndmu >= 200) break;
      const reco::Muon& dmuon(dmuons->at(i));
      // Access the DGL track associated to the displacedMuon
      //std::cout << "isGlobalMuon: " << dmuon.isGlobalMuon() << std::endl;
