@@ -145,6 +145,23 @@ edmDumpEventContent input_mc.root | \
   grep -Ei 'HepMCProduct|GenParticle|SimTrack|SimVertex|TrackingParticle'
 ```
 
+For the GRID `USER` dataset, the repository includes a helper that selects and
+inspects the first file through the global XRootD redirector:
+
+```bash
+./check_grid_mc_truth.sh
+```
+
+The default is the 2024 `llunerti` dataset. A different dataset and output file
+can be supplied explicitly:
+
+```bash
+./check_grid_mc_truth.sh '/primary/processed/USER' products_2023.txt
+```
+
+Set `DAS_INSTANCE` or `XROOTD_REDIRECTOR` in the environment only when a
+non-default DAS instance or redirector is required.
+
 If generator particles are available, add optional MC-only branches for the
 generated cosmic-muon momentum and direction, plus angular matching to both DSA
 tracks. Then compare upper and lower reconstructed response to the same generated
