@@ -111,3 +111,49 @@ summaries versus upper-track `pt`; all histograms, fits, and graphs are saved in
 
 Run MC and DATA into separate output directories and compare the same plots
 before changing the production selection.
+
+## MC study plan
+
+The present ntuple does not write generator-level quantities. Although
+`ntuplizer.cc` includes generator-related headers, it has no generator token or
+handle and creates no generator branches. Existing bias-study ntuples therefore
+support reconstructed-level MC studies only.
+
+### Stage 1: existing MC ntuples
+
+Run the same quality-matched geometric study independently for MC and DATA. Use:
+
+- `pt_upper_vs_lower_zoom_logz.png` to expose the populated 20--150 GeV region;
+- `mean_lower_pt_vs_upper_pt_profile.png` to test displacement from the equality line;
+- `lower_over_upper_pt_vs_upper_pt.png` to measure the side response ratio; and
+- `symmetric_residual_vs_average_pt.png` to remove the arbitrary denominator and
+  reference-side choice.
+
+Compare the profile trends between MC and DATA. If MC reproduces the upper/lower
+shift, detector traversal, energy-loss modeling, or a common reconstruction
+effect is favored. If the shift is substantially different in DATA, investigate
+alignment, calibration, and side-dependent reconstruction efficiency. Repeat
+the comparison in `eta`, `phi`, DT-hit, and relative-`pt`-error regions to locate
+where the discrepancy enters.
+
+### Stage 2: establish available truth products
+
+Inspect one parent EDM MC file on lxplus before changing the ntuplizer:
+
+```bash
+edmDumpEventContent input_mc.root | \
+  grep -Ei 'HepMCProduct|GenParticle|SimTrack|SimVertex|TrackingParticle'
+```
+
+If generator particles are available, add optional MC-only branches for the
+generated cosmic-muon momentum and direction, plus angular matching to both DSA
+tracks. Then compare upper and lower reconstructed response to the same generated
+muon. A single production-level generator momentum can identify a side-dependent
+reconstructed response, but it cannot by itself separate detector energy loss
+from reconstruction bias.
+
+For that separation, prefer `SimTrack`/`SimVertex`, `TrackingParticle`, or
+propagated truth states near the upper and lower muon systems. The decisive
+quantities are upper-reco/upper-truth and lower-reco/lower-truth response. This
+requires confirming which simulation products survive in the parent input before
+implementing truth matching.

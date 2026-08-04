@@ -94,6 +94,108 @@ def draw_2d(chain, expression, selection, output_path):
     return hist
 
 
+def draw_pair_momentum_diagnostics(chain, selection, outdir):
+    objects = []
+
+    zoom = ROOT.TH2F("h_pt_upper_vs_lower_zoom", "", 65, 20.0, 150.0, 65, 20.0, 150.0)
+    chain.Draw("evt_dsa_pt_lower:evt_dsa_pt_upper>>h_pt_upper_vs_lower_zoom", selection, "goff")
+    zoom.SetDirectory(0)
+    zoom.GetXaxis().SetTitle("upper DSA p_{T} [GeV]")
+    zoom.GetYaxis().SetTitle("lower DSA p_{T} [GeV]")
+    canvas_zoom = ROOT.TCanvas("c_pt_upper_vs_lower_zoom", "", 900, 750)
+    canvas_zoom.SetRightMargin(0.14)
+    canvas_zoom.SetLogz()
+    zoom.Draw("COLZ")
+    diagonal_zoom = ROOT.TLine(20.0, 20.0, 150.0, 150.0)
+    diagonal_zoom.SetLineColor(ROOT.kRed + 1)
+    diagonal_zoom.SetLineStyle(2)
+    diagonal_zoom.SetLineWidth(2)
+    diagonal_zoom.Draw()
+    canvas_zoom.SaveAs(os.path.join(outdir, "pt_upper_vs_lower_zoom_logz.png"))
+    objects.append(zoom)
+
+    profile = ROOT.TProfile("p_mean_lower_pt_vs_upper_pt", "", 65, 20.0, 150.0)
+    chain.Draw("evt_dsa_pt_lower:evt_dsa_pt_upper>>p_mean_lower_pt_vs_upper_pt", selection, "goff")
+    profile.SetDirectory(0)
+    profile.SetMarkerStyle(20)
+    profile.SetMarkerColor(ROOT.kBlue + 1)
+    profile.SetLineColor(ROOT.kBlue + 1)
+    profile.GetXaxis().SetTitle("upper DSA p_{T} [GeV]")
+    profile.GetYaxis().SetTitle("mean lower DSA p_{T} [GeV]")
+    profile.SetMinimum(20.0)
+    profile.SetMaximum(150.0)
+    canvas_profile = ROOT.TCanvas("c_mean_lower_pt_vs_upper_pt", "", 900, 700)
+    profile.Draw("E1")
+    diagonal_profile = ROOT.TLine(20.0, 20.0, 150.0, 150.0)
+    diagonal_profile.SetLineColor(ROOT.kRed + 1)
+    diagonal_profile.SetLineStyle(2)
+    diagonal_profile.SetLineWidth(2)
+    diagonal_profile.Draw()
+    canvas_profile.SaveAs(os.path.join(outdir, "mean_lower_pt_vs_upper_pt_profile.png"))
+    objects.append(profile)
+
+    ratio = ROOT.TH2F("h_lower_over_upper_pt_vs_upper_pt", "", 80, 20.0, 400.0, 90, 0.0, 3.0)
+    chain.Draw(
+        "(evt_dsa_pt_lower/evt_dsa_pt_upper):evt_dsa_pt_upper"
+        ">>h_lower_over_upper_pt_vs_upper_pt",
+        selection,
+        "goff",
+    )
+    ratio.SetDirectory(0)
+    ratio.GetXaxis().SetTitle("upper DSA p_{T} [GeV]")
+    ratio.GetYaxis().SetTitle("lower p_{T} / upper p_{T}")
+    ratio_profile = ratio.ProfileX("p_lower_over_upper_pt_vs_upper_pt")
+    ratio_profile.SetDirectory(0)
+    ratio_profile.SetMarkerStyle(20)
+    ratio_profile.SetMarkerColor(ROOT.kRed + 1)
+    ratio_profile.SetLineColor(ROOT.kRed + 1)
+    canvas_ratio = ROOT.TCanvas("c_lower_over_upper_pt_vs_upper_pt", "", 900, 750)
+    canvas_ratio.SetRightMargin(0.14)
+    canvas_ratio.SetLogz()
+    ratio.Draw("COLZ")
+    unity = ROOT.TLine(20.0, 1.0, 400.0, 1.0)
+    unity.SetLineColor(ROOT.kBlack)
+    unity.SetLineStyle(2)
+    unity.Draw()
+    ratio_profile.Draw("E1 SAME")
+    canvas_ratio.SaveAs(os.path.join(outdir, "lower_over_upper_pt_vs_upper_pt.png"))
+    objects.extend([ratio, ratio_profile])
+
+    symmetric = ROOT.TH2F(
+        "h_symmetric_residual_vs_average_pt", "", 80, 20.0, 400.0, 100, -2.0, 2.0
+    )
+    average_pt = "0.5*(evt_dsa_pt_upper+evt_dsa_pt_lower)"
+    symmetric_residual = (
+        "2.0*((1.0/evt_dsa_pt_lower)-(1.0/evt_dsa_pt_upper))"
+        "/((1.0/evt_dsa_pt_lower)+(1.0/evt_dsa_pt_upper))"
+    )
+    chain.Draw(
+        f"({symmetric_residual}):({average_pt})>>h_symmetric_residual_vs_average_pt",
+        selection,
+        "goff",
+    )
+    symmetric.SetDirectory(0)
+    symmetric.GetXaxis().SetTitle("average upper/lower p_{T} [GeV]")
+    symmetric.GetYaxis().SetTitle("symmetric |q|/p_{T} residual")
+    symmetric_profile = symmetric.ProfileX("p_symmetric_residual_vs_average_pt")
+    symmetric_profile.SetDirectory(0)
+    symmetric_profile.SetMarkerStyle(20)
+    symmetric_profile.SetMarkerColor(ROOT.kRed + 1)
+    symmetric_profile.SetLineColor(ROOT.kRed + 1)
+    canvas_symmetric = ROOT.TCanvas("c_symmetric_residual_vs_average_pt", "", 900, 750)
+    canvas_symmetric.SetRightMargin(0.14)
+    canvas_symmetric.SetLogz()
+    symmetric.Draw("COLZ")
+    zero = ROOT.TLine(20.0, 0.0, 400.0, 0.0)
+    zero.SetLineColor(ROOT.kBlack)
+    zero.SetLineStyle(2)
+    zero.Draw()
+    symmetric_profile.Draw("E1 SAME")
+    canvas_symmetric.SaveAs(os.path.join(outdir, "symmetric_residual_vs_average_pt.png"))
+    objects.extend([symmetric, symmetric_profile])
+    return objects
+
+
 def fit_single_gaussian(hist, name):
     """Fit one Gaussian model in a robust central range."""
     if hist.GetEntries() < 20 or hist.Integral() <= 0:
@@ -563,6 +665,7 @@ def main():
         os.path.join(args.outdir, "pt_upper_vs_lower.png"),
     )
     objects.append(h_pt_2d)
+    objects.extend(draw_pair_momentum_diagnostics(chain, resolution_selection, args.outdir))
 
     mean_graph, count_graph, scan_hists = threshold_scan(
         chain, [20.0, 30.0, 40.0, 50.0], resolution_selection, args.outdir
