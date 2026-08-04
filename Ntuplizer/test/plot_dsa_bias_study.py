@@ -3,6 +3,7 @@
 import argparse
 import glob
 import os
+from array import array
 
 import ROOT
 
@@ -91,6 +92,173 @@ def draw_2d(chain, expression, selection, output_path):
     diagonal.Draw()
     canvas.SaveAs(output_path)
     return hist
+
+
+def fit_single_gaussian(hist, name):
+    """Fit one Gaussian model in a robust central range."""
+    if hist.GetEntries() < 20 or hist.Integral() <= 0:
+        return None
+
+    probabilities = array("d", [0.16, 0.50, 0.84])
+    quantiles = array("d", [0.0, 0.0, 0.0])
+    hist.GetQuantiles(3, quantiles, probabilities)
+    center = quantiles[1]
+    width = 0.5 * (quantiles[2] - quantiles[0])
+    if width <= 0:
+        width = hist.GetRMS()
+    if width <= 0:
+        return None
+
+    fit_low = max(hist.GetXaxis().GetXmin(), center - 2.0 * width)
+    fit_high = min(hist.GetXaxis().GetXmax(), center + 2.0 * width)
+    gaussian = ROOT.TF1(name, "gaus", fit_low, fit_high)
+    gaussian.SetParameters(hist.GetMaximum(), center, width)
+    gaussian.SetLineColor(ROOT.kRed + 1)
+    gaussian.SetLineWidth(2)
+    fit_result = hist.Fit(gaussian, "RQ0S")
+    if int(fit_result) != 0 or gaussian.GetParameter(2) <= 0:
+        return None
+    return gaussian
+
+
+def draw_residual_grid(histograms, fits, pt_bins, output_path):
+    canvas = ROOT.TCanvas("c_upper_lower_residual_by_upper_pt", "", 1350, 1050)
+    canvas.Divide(3, 3, 0.002, 0.002)
+    labels = []
+    for index, hist in enumerate(histograms):
+        canvas.cd(index + 1)
+        ROOT.gPad.SetLeftMargin(0.14)
+        ROOT.gPad.SetBottomMargin(0.13)
+        hist.SetLineColor(ROOT.kBlue + 1)
+        hist.SetLineWidth(2)
+        hist.SetTitle(f"{pt_bins[index]:g} < upper p_{{T}} < {pt_bins[index + 1]:g} GeV")
+        hist.GetXaxis().SetTitle("upper/lower |q|/p_{T} relative residual")
+        hist.GetYaxis().SetTitle("Events")
+        hist.Draw("HIST")
+        if fits[index]:
+            fits[index].Draw("SAME")
+            label = ROOT.TLatex()
+            label.SetNDC()
+            label.SetTextSize(0.045)
+            label.DrawLatex(
+                0.53,
+                0.78,
+                f"#mu = {fits[index].GetParameter(1):.3f} #pm {fits[index].GetParError(1):.3f}",
+            )
+            label.DrawLatex(
+                0.53,
+                0.70,
+                f"#sigma = {fits[index].GetParameter(2):.3f} #pm {fits[index].GetParError(2):.3f}",
+            )
+            labels.append(label)
+        else:
+            label = ROOT.TLatex()
+            label.SetNDC()
+            label.SetTextColor(ROOT.kRed + 1)
+            label.SetTextSize(0.05)
+            label.DrawLatex(0.48, 0.76, "fit unavailable")
+            labels.append(label)
+    canvas.SaveAs(output_path)
+
+
+def draw_summary_graph(graph, ytitle, output_path, zero_line=False):
+    canvas = ROOT.TCanvas(f"c_{graph.GetName()}", "", 900, 700)
+    canvas.SetLogx()
+    graph.SetMarkerStyle(20)
+    graph.SetMarkerColor(ROOT.kBlue + 1)
+    graph.SetLineColor(ROOT.kBlue + 1)
+    graph.SetTitle(f";upper-track p_{{T}} [GeV];{ytitle}")
+    graph.Draw("AP")
+    if zero_line:
+        canvas.Update()
+        line = ROOT.TLine(
+            graph.GetXaxis().GetXmin(),
+            0.0,
+            graph.GetXaxis().GetXmax(),
+            0.0,
+        )
+        line.SetLineStyle(2)
+        line.SetLineColor(ROOT.kGray + 2)
+        line.Draw()
+    canvas.SaveAs(output_path)
+
+
+def make_pair_resolution_plots(chain, selection, outdir):
+    pt_bins = [20.0, 30.0, 40.0, 50.0, 65.0, 85.0, 120.0, 200.0, 1000.0]
+    residual = (
+        "((1.0/evt_dsa_pt_lower)-(1.0/evt_dsa_pt_upper))"
+        "/(1.0/evt_dsa_pt_upper)"
+    )
+
+    inclusive = make_hist(
+        chain,
+        "h_upper_lower_resolution_residual_inclusive",
+        residual,
+        selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    inclusive_fit = fit_single_gaussian(inclusive, "fit_upper_lower_resolution_residual_inclusive")
+    canvas = ROOT.TCanvas("c_upper_lower_resolution_residual_inclusive", "", 900, 700)
+    inclusive.SetLineColor(ROOT.kBlue + 1)
+    inclusive.SetLineWidth(2)
+    inclusive.GetXaxis().SetTitle("upper/lower |q|/p_{T} relative residual")
+    inclusive.GetYaxis().SetTitle("Events")
+    inclusive.Draw("HIST")
+    if inclusive_fit:
+        inclusive_fit.Draw("SAME")
+    canvas.SaveAs(os.path.join(outdir, "upper_lower_resolution_residual_inclusive.png"))
+
+    histograms = []
+    fits = []
+    mean_graph = ROOT.TGraphErrors()
+    sigma_graph = ROOT.TGraphErrors()
+    mean_graph.SetName("g_upper_lower_residual_mean_vs_upper_pt")
+    sigma_graph.SetName("g_upper_lower_residual_sigma_vs_upper_pt")
+    graph_point = 0
+    for index, (low, high) in enumerate(zip(pt_bins[:-1], pt_bins[1:])):
+        bin_selection = f"({selection}) && evt_dsa_pt_upper>={low} && evt_dsa_pt_upper<{high}"
+        hist = make_hist(
+            chain,
+            f"h_upper_lower_resolution_residual_pt_{index}",
+            residual,
+            bin_selection,
+            200,
+            -5.0,
+            5.0,
+        )
+        fit = fit_single_gaussian(hist, f"fit_upper_lower_resolution_residual_pt_{index}")
+        histograms.append(hist)
+        fits.append(fit)
+        if fit:
+            center = 0.5 * (low + high)
+            half_width = 0.5 * (high - low)
+            mean_graph.SetPoint(graph_point, center, fit.GetParameter(1))
+            mean_graph.SetPointError(graph_point, half_width, fit.GetParError(1))
+            sigma_graph.SetPoint(graph_point, center, fit.GetParameter(2))
+            sigma_graph.SetPointError(graph_point, half_width, fit.GetParError(2))
+            graph_point += 1
+
+    draw_residual_grid(
+        histograms,
+        fits,
+        pt_bins,
+        os.path.join(outdir, "upper_lower_resolution_residual_by_upper_pt.png"),
+    )
+    draw_summary_graph(
+        mean_graph,
+        "Gaussian mean of relative residual",
+        os.path.join(outdir, "upper_lower_residual_mean_vs_upper_pt.png"),
+        zero_line=True,
+    )
+    draw_summary_graph(
+        sigma_graph,
+        "Gaussian #sigma of relative residual",
+        os.path.join(outdir, "upper_lower_residual_sigma_vs_upper_pt.png"),
+    )
+    print(f"Quality-matched geometric-pair residual entries: {inclusive.GetEntries():.0f}")
+    return [inclusive, inclusive_fit, *histograms, *fits, mean_graph, sigma_graph]
 
 
 def threshold_scan(chain, thresholds, base_selection, outdir):
@@ -402,9 +570,12 @@ def main():
     objects.extend(scan_hists)
     objects.extend([mean_graph, count_graph])
 
+    objects.extend(make_pair_resolution_plots(chain, resolution_selection, args.outdir))
+
     output_root = ROOT.TFile(os.path.join(args.outdir, "dsa_bias_study.root"), "RECREATE")
     for obj in objects:
-        obj.Write()
+        if obj:
+            obj.Write()
     output_root.Close()
     print(f"Wrote DSA bias-study plots and ROOT objects to {args.outdir}")
 

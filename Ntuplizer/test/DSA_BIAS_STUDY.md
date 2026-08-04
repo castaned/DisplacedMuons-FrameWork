@@ -44,6 +44,29 @@ For events with exactly two reconstructed DSA muons, the ntuplizer stores:
 The collection-order branches test ordering effects. The upper/lower branches
 test detector-side effects without applying a tag/probe interpretation.
 
+## Geometry-pair resolution diagnostic
+
+The plotting script also calculates the residual used by the resolution analysis
+from the new quality-matched geometric pair, without using the original tag/probe
+assignment:
+
+```text
+R = (|q/pT|lower - |q/pT|upper) / |q/pT|upper
+```
+
+The upper detector track is the reference and the lower detector track is the
+comparison. Both tracks pass `evt_dsa_passResolutionPair`: `pt > 20 GeV`,
+`abs(eta) < 0.7`, at least 31 valid DT hits, normalized `chi2 < 5`, and
+`ptError/pt < 0.5`. The original `passTagID`, `hasProbe`, and `probeID` values are
+not used.
+
+The residual is shown inclusively and in upper-track `pt` bins of 20, 30, 40, 50, 65,
+85, 120, 200, and 1000 GeV. Each sufficiently populated bin is fitted with one
+Gaussian over a robust central range. Separate mean and sigma summary graphs are
+written versus upper-track `pt`. Comparing these results with the original
+tag/probe resolution analysis tests whether the observed bias enters through the
+tag/probe assignment and its asymmetric preselection.
+
 ## Pair selection flags
 
 No event is discarded by the ntuplizer. Instead, three cumulative flags preserve
@@ -80,7 +103,11 @@ upper/lower quality plots (`ptError/pt`, normalized `chi2`, and DT hits), a
 residuals, a two-dimensional upper-vs-lower `pt` plot, and a common minimum-`pt`
 scan at 20, 30, 40, and 50 GeV. The threshold scan always reports both the
 residual mean and retained event count so a low-statistics effect is not mistaken
-for bias reduction.
+for bias reduction. It additionally writes
+`upper_lower_resolution_residual_inclusive.png`,
+`upper_lower_resolution_residual_by_upper_pt.png`, and Gaussian mean/sigma
+summaries versus upper-track `pt`; all histograms, fits, and graphs are saved in
+`dsa_bias_study.root`.
 
 Run MC and DATA into separate output directories and compare the same plots
 before changing the production selection.
