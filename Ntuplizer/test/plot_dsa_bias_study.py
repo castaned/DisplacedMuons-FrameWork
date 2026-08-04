@@ -180,6 +180,7 @@ def main():
         "evt_dsa_qoverpt_2",
         "evt_dsa_residual_12",
         "evt_dsa_residual_21",
+        "evt_dsa_cosAlpha_12",
         "evt_dsa_oppositeSides",
         "evt_dsa_index_upper",
         "evt_dsa_index_lower",
@@ -187,24 +188,59 @@ def main():
         "evt_dsa_pt_lower",
         "evt_dsa_residual_lower_upper",
         "dmu_dsa_pt",
+        "dmu_dsa_eta",
         "dmu_dsa_ptError",
         "dmu_dsa_normalizedChi2",
         "dmu_dsa_nValidMuonDTHits",
     ]
     require_branches(chain, required)
 
-    pair_selection = "evt_dsa_nReco==2"
-    side_selection = "evt_dsa_nReco==2 && evt_dsa_oppositeSides"
-    pair_count = chain.GetEntries(pair_selection)
-    side_count = chain.GetEntries(side_selection)
-    print(f"Exactly-two-DSA events: {pair_count}")
-    print(f"Opposite-side events with available geometry: {side_count}")
-    if side_count == 0:
+    exactly_two_selection = "evt_dsa_nReco==2"
+    selection_flags = [
+        "evt_dsa_passRawPair",
+        "evt_dsa_passQualityPair",
+        "evt_dsa_passResolutionPair",
+    ]
+    if all(chain.GetBranch(name) for name in selection_flags):
+        raw_selection = "evt_dsa_passRawPair"
+        quality_selection = "evt_dsa_passQualityPair"
+        resolution_selection = "evt_dsa_passResolutionPair"
+        print("Using stored DSA pair-selection flags")
+    else:
+        upper = "evt_dsa_index_upper"
+        lower = "evt_dsa_index_lower"
+        raw_selection = (
+            "evt_dsa_nReco==2 && evt_dsa_oppositeSides && "
+            "evt_dsa_cosAlpha_12<-0.5048461"
+        )
+        quality_selection = (
+            f"({raw_selection}) && "
+            f"dmu_dsa_pt[{upper}]>20 && dmu_dsa_pt[{lower}]>20 && "
+            f"abs(dmu_dsa_eta[{upper}])<0.7 && abs(dmu_dsa_eta[{lower}])<0.7 && "
+            f"dmu_dsa_nValidMuonDTHits[{upper}]>=31 && "
+            f"dmu_dsa_nValidMuonDTHits[{lower}]>=31 && "
+            f"dmu_dsa_normalizedChi2[{upper}]<5 && dmu_dsa_normalizedChi2[{lower}]<5"
+        )
+        resolution_selection = (
+            f"({quality_selection}) && "
+            f"dmu_dsa_ptError[{upper}]/dmu_dsa_pt[{upper}]<0.5 && "
+            f"dmu_dsa_ptError[{lower}]/dmu_dsa_pt[{lower}]<0.5"
+        )
+        print("Stored pair-selection flags not found; rebuilding equivalent selections from branches")
+    exactly_two_count = chain.GetEntries(exactly_two_selection)
+    raw_count = chain.GetEntries(raw_selection)
+    quality_count = chain.GetEntries(quality_selection)
+    resolution_count = chain.GetEntries(resolution_selection)
+    print(f"Exactly-two-DSA events: {exactly_two_count}")
+    print(f"Raw opposite-side angular pairs: {raw_count}")
+    print(f"Quality-matched pairs: {quality_count}")
+    print(f"Resolution pairs with common ptError/pt cut: {resolution_count}")
+    if raw_count == 0:
         print("WARNING: no upper/lower pairs found; check TrackExtra availability and dmu_dsa_side")
     objects = []
 
-    h_pt_1 = make_hist(chain, "h_pt_1", "evt_dsa_pt_1", pair_selection, 100, 0.0, 400.0)
-    h_pt_2 = make_hist(chain, "h_pt_2", "evt_dsa_pt_2", pair_selection, 100, 0.0, 400.0)
+    h_pt_1 = make_hist(chain, "h_pt_1", "evt_dsa_pt_1", raw_selection, 100, 0.0, 400.0)
+    h_pt_2 = make_hist(chain, "h_pt_2", "evt_dsa_pt_2", raw_selection, 100, 0.0, 400.0)
     objects.extend([h_pt_1, h_pt_2])
     draw_overlay(
         h_pt_1,
@@ -215,8 +251,8 @@ def main():
         os.path.join(args.outdir, "pt_collection_order_comparison.png"),
     )
 
-    h_pt_upper = make_hist(chain, "h_pt_upper", "evt_dsa_pt_upper", side_selection, 100, 0.0, 400.0)
-    h_pt_lower = make_hist(chain, "h_pt_lower", "evt_dsa_pt_lower", side_selection, 100, 0.0, 400.0)
+    h_pt_upper = make_hist(chain, "h_pt_upper", "evt_dsa_pt_upper", quality_selection, 100, 0.0, 400.0)
+    h_pt_lower = make_hist(chain, "h_pt_lower", "evt_dsa_pt_lower", quality_selection, 100, 0.0, 400.0)
     objects.extend([h_pt_upper, h_pt_lower])
     draw_overlay(
         h_pt_upper,
@@ -257,8 +293,8 @@ def main():
         ),
     ]
     for name, upper_expr, lower_expr, bins, xmin, xmax, xtitle in quality_plots:
-        h_upper = make_hist(chain, f"h_upper_{name}", upper_expr, side_selection, bins, xmin, xmax)
-        h_lower = make_hist(chain, f"h_lower_{name}", lower_expr, side_selection, bins, xmin, xmax)
+        h_upper = make_hist(chain, f"h_upper_{name}", upper_expr, quality_selection, bins, xmin, xmax)
+        h_lower = make_hist(chain, f"h_lower_{name}", lower_expr, quality_selection, bins, xmin, xmax)
         objects.extend([h_upper, h_lower])
         draw_overlay(
             h_upper,
@@ -270,7 +306,7 @@ def main():
         )
 
     qoverpt_selection = (
-        f"({pair_selection}) && evt_dsa_absqoverpt_1>0 && evt_dsa_absqoverpt_2>0"
+        f"({quality_selection}) && evt_dsa_absqoverpt_1>0 && evt_dsa_absqoverpt_2>0"
     )
     h_qoverpt_consistency_1 = make_hist(
         chain,
@@ -301,10 +337,10 @@ def main():
     )
 
     h_residual_12 = make_hist(
-        chain, "h_residual_12", "evt_dsa_residual_12", pair_selection, 200, -5.0, 5.0
+        chain, "h_residual_12", "evt_dsa_residual_12", resolution_selection, 200, -5.0, 5.0
     )
     h_residual_21 = make_hist(
-        chain, "h_residual_21", "evt_dsa_residual_21", pair_selection, 200, -5.0, 5.0
+        chain, "h_residual_21", "evt_dsa_residual_21", resolution_selection, 200, -5.0, 5.0
     )
     objects.extend([h_residual_12, h_residual_21])
     draw_overlay(
@@ -320,7 +356,7 @@ def main():
         chain,
         "h_residual_random_order",
         "event%2==0 ? evt_dsa_residual_12 : evt_dsa_residual_21",
-        pair_selection,
+        resolution_selection,
         200,
         -5.0,
         5.0,
@@ -333,13 +369,13 @@ def main():
     )
 
     h_asymmetry = make_hist(
-        chain, "h_abs_pt_asymmetry", "abs(evt_dsa_pt_asymmetry)", pair_selection, 100, 0.0, 1.0
+        chain, "h_abs_pt_asymmetry", "abs(evt_dsa_pt_asymmetry)", resolution_selection, 100, 0.0, 1.0
     )
     h_side_residual = make_hist(
         chain,
         "h_residual_lower_upper",
         "evt_dsa_residual_lower_upper",
-        side_selection,
+        resolution_selection,
         200,
         -5.0,
         5.0,
@@ -355,13 +391,13 @@ def main():
     h_pt_2d = draw_2d(
         chain,
         "evt_dsa_pt_lower:evt_dsa_pt_upper",
-        side_selection,
+        quality_selection,
         os.path.join(args.outdir, "pt_upper_vs_lower.png"),
     )
     objects.append(h_pt_2d)
 
     mean_graph, count_graph, scan_hists = threshold_scan(
-        chain, [20.0, 30.0, 40.0, 50.0], side_selection, args.outdir
+        chain, [20.0, 30.0, 40.0, 50.0], resolution_selection, args.outdir
     )
     objects.extend(scan_hists)
     objects.extend([mean_graph, count_graph])

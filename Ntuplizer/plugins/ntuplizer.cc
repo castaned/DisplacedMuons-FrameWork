@@ -208,6 +208,9 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       Float_t evt_dsa_residual_12 = 0.;
       Float_t evt_dsa_residual_21 = 0.;
       bool evt_dsa_oppositeSides = false;
+      bool evt_dsa_passRawPair = false;
+      bool evt_dsa_passQualityPair = false;
+      bool evt_dsa_passResolutionPair = false;
       Int_t evt_dsa_index_upper = -1;
       Int_t evt_dsa_index_lower = -1;
       Float_t evt_dsa_pt_upper = 0.;
@@ -376,6 +379,9 @@ void ntuplizer::beginJob() {
    tree_out->Branch("evt_dsa_residual_12", &evt_dsa_residual_12, "evt_dsa_residual_12/F");
    tree_out->Branch("evt_dsa_residual_21", &evt_dsa_residual_21, "evt_dsa_residual_21/F");
    tree_out->Branch("evt_dsa_oppositeSides", &evt_dsa_oppositeSides, "evt_dsa_oppositeSides/O");
+   tree_out->Branch("evt_dsa_passRawPair", &evt_dsa_passRawPair, "evt_dsa_passRawPair/O");
+   tree_out->Branch("evt_dsa_passQualityPair", &evt_dsa_passQualityPair, "evt_dsa_passQualityPair/O");
+   tree_out->Branch("evt_dsa_passResolutionPair", &evt_dsa_passResolutionPair, "evt_dsa_passResolutionPair/O");
    tree_out->Branch("evt_dsa_index_upper", &evt_dsa_index_upper, "evt_dsa_index_upper/I");
    tree_out->Branch("evt_dsa_index_lower", &evt_dsa_index_lower, "evt_dsa_index_lower/I");
    tree_out->Branch("evt_dsa_pt_upper", &evt_dsa_pt_upper, "evt_dsa_pt_upper/F");
@@ -471,6 +477,9 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    evt_dsa_residual_12 = 0.;
    evt_dsa_residual_21 = 0.;
    evt_dsa_oppositeSides = false;
+   evt_dsa_passRawPair = false;
+   evt_dsa_passQualityPair = false;
+   evt_dsa_passResolutionPair = false;
    evt_dsa_index_upper = -1;
    evt_dsa_index_lower = -1;
    evt_dsa_pt_upper = 0.;
@@ -674,6 +683,24 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        evt_dsa_qoverpt_lower = dmu_dsa_qoverpt[lowerIdx];
        evt_dsa_residual_lower_upper = (evt_dsa_qoverpt_upper != 0.f ?
          (evt_dsa_qoverpt_lower - evt_dsa_qoverpt_upper) / evt_dsa_qoverpt_upper : 0.f);
+
+       evt_dsa_passRawPair = (evt_dsa_cosAlpha_12 < std::cos(2.1));
+       if (evt_dsa_passRawPair) {
+         const bool passCommonPt = (dmu_dsa_pt[upperIdx] > 20.f && dmu_dsa_pt[lowerIdx] > 20.f);
+         const bool passCommonEta =
+           (std::abs(dmu_dsa_eta[upperIdx]) < 0.7f && std::abs(dmu_dsa_eta[lowerIdx]) < 0.7f);
+         const bool passCommonDTHits =
+           (dmu_dsa_nValidMuonDTHits[upperIdx] >= 31 && dmu_dsa_nValidMuonDTHits[lowerIdx] >= 31);
+         const bool passCommonChi2 =
+           (dmu_dsa_normalizedChi2[upperIdx] < 5.f && dmu_dsa_normalizedChi2[lowerIdx] < 5.f);
+         evt_dsa_passQualityPair = passCommonPt && passCommonEta && passCommonDTHits && passCommonChi2;
+
+         if (evt_dsa_passQualityPair) {
+           const float upperRelPtError = dmu_dsa_ptError[upperIdx] / dmu_dsa_pt[upperIdx];
+           const float lowerRelPtError = dmu_dsa_ptError[lowerIdx] / dmu_dsa_pt[lowerIdx];
+           evt_dsa_passResolutionPair = (upperRelPtError < 0.5f && lowerRelPtError < 0.5f);
+         }
+       }
      }
    }
 

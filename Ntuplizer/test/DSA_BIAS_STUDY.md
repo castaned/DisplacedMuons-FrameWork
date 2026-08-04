@@ -44,6 +44,24 @@ For events with exactly two reconstructed DSA muons, the ntuplizer stores:
 The collection-order branches test ordering effects. The upper/lower branches
 test detector-side effects without applying a tag/probe interpretation.
 
+## Pair selection flags
+
+No event is discarded by the ntuplizer. Instead, three cumulative flags preserve
+the raw sample and provide reproducible matched selections:
+
+- `evt_dsa_passRawPair`: exactly two DSA tracks, opposite geometric sides, and
+  angular separation greater than 2.1 radians.
+- `evt_dsa_passQualityPair`: raw pair plus, for both tracks, `pt > 20 GeV`,
+  `abs(eta) < 0.7`, at least 31 valid DT hits, and normalized `chi2 < 5`.
+- `evt_dsa_passResolutionPair`: quality pair plus `ptError/pt < 0.5` for both
+  tracks.
+
+The plotting script uses the quality flag for the upper/lower uncertainty and
+quality comparisons. It deliberately does not apply the `ptError/pt` cut while
+plotting that quantity. Residual and threshold-scan plots use the resolution flag.
+For ntuples produced before these flags were added, the script reconstructs the
+same selections from the stored pair indices and per-track branches.
+
 ## Validation workflow
 
 First produce a small 2022 MC or DATA ntuple with the normal CMSSW configuration.
@@ -55,7 +73,8 @@ python3 plot_dsa_bias_study.py \
   --outdir dsa_bias_study_2022
 ```
 
-The script writes normalized collection-order and upper/lower comparisons,
+At startup, the script reports how many events pass each cumulative pair flag.
+It then writes normalized collection-order and upper/lower comparisons,
 upper/lower quality plots (`ptError/pt`, normalized `chi2`, and DT hits), a
 `qoverpt` parameterization check, forward/swapped and deterministic random-order
 residuals, a two-dimensional upper-vs-lower `pt` plot, and a common minimum-`pt`
