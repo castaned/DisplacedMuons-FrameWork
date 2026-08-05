@@ -10,6 +10,7 @@ ntuples = cms.EDAnalyzer('ntuplizer',
     displacedGlobalCollection     = cms.InputTag("displacedGlobalMuons"),
     displacedStandAloneCollection = cms.InputTag("displacedStandAloneMuons"),
     displacedMuonCollection       = cms.InputTag("slimmedDisplacedMuons"),
+    genParticleCollection         = cms.InputTag("prunedGenParticles"),
 
     #prescales  = cms.InputTag("patTrigger"),
     bits       = cms.InputTag("TriggerResults","","HLT"),

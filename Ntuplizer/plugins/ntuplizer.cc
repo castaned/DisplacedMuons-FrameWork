@@ -15,6 +15,7 @@
 #include "DataFormats/MuonReco/interface/Muon.h"
 #include "DataFormats/RecoCandidate/interface/RecoCandidate.h"
 #include "DataFormats/Candidate/interface/Candidate.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "DataFormats/PatCandidates/interface/TriggerObjectStandAlone.h"
 #include "DataFormats/PatCandidates/interface/PackedTriggerPrescales.h"
@@ -128,6 +129,9 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       // displacedMuons (reco::Muon // pat::Muon)
       edm::EDGetTokenT<edm::View<reco::Muon> > dmuToken;
       edm::Handle<edm::View<reco::Muon> > dmuons;
+      // generator particles (MC only)
+      edm::EDGetTokenT<edm::View<reco::GenParticle> > genParticleToken;
+      edm::Handle<edm::View<reco::GenParticle> > genParticles;
 
       // Trigger tags
       std::vector<std::string> HLTPaths_;
@@ -137,6 +141,28 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       Int_t event = 0;
       Int_t lumiBlock = 0;
       Int_t run = 0;
+
+      // Generator cosmic-muon states (MC only)
+      Int_t gen_status1_nMuon = 0;
+      bool gen_entry_valid = false;
+      Int_t gen_entry_pdgId = 0;
+      Float_t gen_entry_charge = 0.;
+      Float_t gen_entry_pt = 0.;
+      Float_t gen_entry_eta = 0.;
+      Float_t gen_entry_phi = 0.;
+      Float_t gen_entry_vx = 0.;
+      Float_t gen_entry_vy = 0.;
+      Float_t gen_entry_vz = 0.;
+      Int_t gen_status3_nMuon = 0;
+      bool gen_initial_valid = false;
+      Int_t gen_initial_pdgId = 0;
+      Float_t gen_initial_pt = 0.;
+      Float_t gen_initial_eta = 0.;
+      Float_t gen_initial_phi = 0.;
+      Float_t gen_initial_vx = 0.;
+      Float_t gen_initial_vy = 0.;
+      Float_t gen_initial_vz = 0.;
+      Float_t gen_entry_over_initial_pt = 0.;
 
       // ----------------------------------
       // displacedMuons
@@ -218,6 +244,11 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       Float_t evt_dsa_qoverpt_upper = 0.;
       Float_t evt_dsa_qoverpt_lower = 0.;
       Float_t evt_dsa_residual_lower_upper = 0.;
+      bool evt_dsa_gen_response_valid = false;
+      Float_t evt_dsa_response_upper_gen_entry = 0.;
+      Float_t evt_dsa_response_lower_gen_entry = 0.;
+      Float_t evt_dsa_gen_cosAlpha_upper = 0.;
+      Float_t evt_dsa_gen_cosAlpha_lower_reversed = 0.;
 
       Float_t dmu_dgl_pt[200] = {0.};
       Float_t dmu_dgl_eta[200] = {0.};
@@ -282,6 +313,10 @@ ntuplizer::ntuplizer(const edm::ParameterSet& iConfig) {
    dglToken = consumes<edm::View<reco::Track> >  (parameters.getParameter<edm::InputTag>("displacedGlobalCollection"));
    dsaToken = consumes<edm::View<reco::Track> >  (parameters.getParameter<edm::InputTag>("displacedStandAloneCollection"));
    dmuToken = consumes<edm::View<reco::Muon> >  (parameters.getParameter<edm::InputTag>("displacedMuonCollection"));
+   if (!isData) {
+     genParticleToken = consumes<edm::View<reco::GenParticle> >(
+       parameters.getParameter<edm::InputTag>("genParticleCollection"));
+   }
 
    triggerBits_ = consumes<edm::TriggerResults> (parameters.getParameter<edm::InputTag>("bits"));
 }
@@ -310,6 +345,26 @@ void ntuplizer::beginJob() {
    tree_out->Branch("event", &event, "event/I");
    tree_out->Branch("lumiBlock", &lumiBlock, "lumiBlock/I");
    tree_out->Branch("run", &run, "run/I");
+   tree_out->Branch("gen_status1_nMuon", &gen_status1_nMuon, "gen_status1_nMuon/I");
+   tree_out->Branch("gen_entry_valid", &gen_entry_valid, "gen_entry_valid/O");
+   tree_out->Branch("gen_entry_pdgId", &gen_entry_pdgId, "gen_entry_pdgId/I");
+   tree_out->Branch("gen_entry_charge", &gen_entry_charge, "gen_entry_charge/F");
+   tree_out->Branch("gen_entry_pt", &gen_entry_pt, "gen_entry_pt/F");
+   tree_out->Branch("gen_entry_eta", &gen_entry_eta, "gen_entry_eta/F");
+   tree_out->Branch("gen_entry_phi", &gen_entry_phi, "gen_entry_phi/F");
+   tree_out->Branch("gen_entry_vx", &gen_entry_vx, "gen_entry_vx/F");
+   tree_out->Branch("gen_entry_vy", &gen_entry_vy, "gen_entry_vy/F");
+   tree_out->Branch("gen_entry_vz", &gen_entry_vz, "gen_entry_vz/F");
+   tree_out->Branch("gen_status3_nMuon", &gen_status3_nMuon, "gen_status3_nMuon/I");
+   tree_out->Branch("gen_initial_valid", &gen_initial_valid, "gen_initial_valid/O");
+   tree_out->Branch("gen_initial_pdgId", &gen_initial_pdgId, "gen_initial_pdgId/I");
+   tree_out->Branch("gen_initial_pt", &gen_initial_pt, "gen_initial_pt/F");
+   tree_out->Branch("gen_initial_eta", &gen_initial_eta, "gen_initial_eta/F");
+   tree_out->Branch("gen_initial_phi", &gen_initial_phi, "gen_initial_phi/F");
+   tree_out->Branch("gen_initial_vx", &gen_initial_vx, "gen_initial_vx/F");
+   tree_out->Branch("gen_initial_vy", &gen_initial_vy, "gen_initial_vy/F");
+   tree_out->Branch("gen_initial_vz", &gen_initial_vz, "gen_initial_vz/F");
+   tree_out->Branch("gen_entry_over_initial_pt", &gen_entry_over_initial_pt, "gen_entry_over_initial_pt/F");
 
    // ----------------------------------
    // displacedMuons
@@ -389,6 +444,11 @@ void ntuplizer::beginJob() {
    tree_out->Branch("evt_dsa_qoverpt_upper", &evt_dsa_qoverpt_upper, "evt_dsa_qoverpt_upper/F");
    tree_out->Branch("evt_dsa_qoverpt_lower", &evt_dsa_qoverpt_lower, "evt_dsa_qoverpt_lower/F");
    tree_out->Branch("evt_dsa_residual_lower_upper", &evt_dsa_residual_lower_upper, "evt_dsa_residual_lower_upper/F");
+   tree_out->Branch("evt_dsa_gen_response_valid", &evt_dsa_gen_response_valid, "evt_dsa_gen_response_valid/O");
+   tree_out->Branch("evt_dsa_response_upper_gen_entry", &evt_dsa_response_upper_gen_entry, "evt_dsa_response_upper_gen_entry/F");
+   tree_out->Branch("evt_dsa_response_lower_gen_entry", &evt_dsa_response_lower_gen_entry, "evt_dsa_response_lower_gen_entry/F");
+   tree_out->Branch("evt_dsa_gen_cosAlpha_upper", &evt_dsa_gen_cosAlpha_upper, "evt_dsa_gen_cosAlpha_upper/F");
+   tree_out->Branch("evt_dsa_gen_cosAlpha_lower_reversed", &evt_dsa_gen_cosAlpha_lower_reversed, "evt_dsa_gen_cosAlpha_lower_reversed/F");
    // dmu_dgl
    tree_out->Branch("dmu_dgl_pt", dmu_dgl_pt, "dmu_dgl_pt[ndmu]/F");
    tree_out->Branch("dmu_dgl_eta", dmu_dgl_eta, "dmu_dgl_eta[ndmu]/F");
@@ -446,6 +506,9 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    iEvent.getByToken(dsaToken, dsas);
    iEvent.getByToken(dmuToken, dmuons);
    iEvent.getByToken(triggerBits_, triggerBits);
+   if (!isData) {
+     iEvent.getByToken(genParticleToken, genParticles);
+   }
 
    // Count number of events read
    counts->Fill(0);
@@ -455,6 +518,74 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    event = iEvent.id().event();
    lumiBlock = iEvent.id().luminosityBlock();
    run = iEvent.id().run();
+
+   gen_status1_nMuon = 0;
+   gen_entry_valid = false;
+   gen_entry_pdgId = 0;
+   gen_entry_charge = 0.;
+   gen_entry_pt = 0.;
+   gen_entry_eta = 0.;
+   gen_entry_phi = 0.;
+   gen_entry_vx = 0.;
+   gen_entry_vy = 0.;
+   gen_entry_vz = 0.;
+   gen_status3_nMuon = 0;
+   gen_initial_valid = false;
+   gen_initial_pdgId = 0;
+   gen_initial_pt = 0.;
+   gen_initial_eta = 0.;
+   gen_initial_phi = 0.;
+   gen_initial_vx = 0.;
+   gen_initial_vy = 0.;
+   gen_initial_vz = 0.;
+   gen_entry_over_initial_pt = 0.;
+
+   if (!isData && genParticles.isValid()) {
+     const reco::GenParticle* entryMuon = nullptr;
+     for (const auto& particle : *genParticles) {
+       if (std::abs(particle.pdgId()) != 13 || particle.status() != 1) continue;
+       gen_status1_nMuon++;
+       if (entryMuon == nullptr || particle.vy() > entryMuon->vy()) {
+         entryMuon = &particle;
+       }
+     }
+
+     if (entryMuon != nullptr) {
+       gen_entry_valid = true;
+       gen_entry_pdgId = entryMuon->pdgId();
+       gen_entry_charge = entryMuon->charge();
+       gen_entry_pt = entryMuon->pt();
+       gen_entry_eta = entryMuon->eta();
+       gen_entry_phi = entryMuon->phi();
+       gen_entry_vx = entryMuon->vx();
+       gen_entry_vy = entryMuon->vy();
+       gen_entry_vz = entryMuon->vz();
+     }
+
+     const reco::GenParticle* initialMuon = nullptr;
+     for (const auto& particle : *genParticles) {
+       if (std::abs(particle.pdgId()) != 13 || particle.status() != 3) continue;
+       gen_status3_nMuon++;
+       if (entryMuon != nullptr && particle.pdgId() != entryMuon->pdgId()) continue;
+       if (initialMuon == nullptr || particle.vy() > initialMuon->vy()) {
+         initialMuon = &particle;
+       }
+     }
+
+     if (initialMuon != nullptr) {
+       gen_initial_valid = true;
+       gen_initial_pdgId = initialMuon->pdgId();
+       gen_initial_pt = initialMuon->pt();
+       gen_initial_eta = initialMuon->eta();
+       gen_initial_phi = initialMuon->phi();
+       gen_initial_vx = initialMuon->vx();
+       gen_initial_vy = initialMuon->vy();
+       gen_initial_vz = initialMuon->vz();
+       if (gen_initial_pt > 0.f && gen_entry_valid) {
+         gen_entry_over_initial_pt = gen_entry_pt / gen_initial_pt;
+       }
+     }
+   }
 
    // ----------------------------------
    // displacedMuons Collection
@@ -487,6 +618,11 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    evt_dsa_qoverpt_upper = 0.;
    evt_dsa_qoverpt_lower = 0.;
    evt_dsa_residual_lower_upper = 0.;
+   evt_dsa_gen_response_valid = false;
+   evt_dsa_response_upper_gen_entry = 0.;
+   evt_dsa_response_lower_gen_entry = 0.;
+   evt_dsa_gen_cosAlpha_upper = 0.;
+   evt_dsa_gen_cosAlpha_lower_reversed = 0.;
    for (unsigned int i = 0; i < dmuons->size(); i++) {
      if (ndmu >= 200) break;
      //std::cout << " - - ndmu: " << ndmu << std::endl;
@@ -683,6 +819,27 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        evt_dsa_qoverpt_lower = dmu_dsa_qoverpt[lowerIdx];
        evt_dsa_residual_lower_upper = (evt_dsa_qoverpt_upper != 0.f ?
          (evt_dsa_qoverpt_lower - evt_dsa_qoverpt_upper) / evt_dsa_qoverpt_upper : 0.f);
+
+       if (gen_entry_valid && gen_entry_pt > 0.f) {
+         evt_dsa_gen_response_valid = true;
+         evt_dsa_response_upper_gen_entry = (evt_dsa_pt_upper - gen_entry_pt) / gen_entry_pt;
+         evt_dsa_response_lower_gen_entry = (evt_dsa_pt_lower - gen_entry_pt) / gen_entry_pt;
+
+         TVector3 genDirection;
+         TVector3 upperDirection;
+         TVector3 lowerDirection;
+         genDirection.SetPtEtaPhi(gen_entry_pt, gen_entry_eta, gen_entry_phi);
+         upperDirection.SetPtEtaPhi(
+           dmu_dsa_pt[upperIdx], dmu_dsa_eta[upperIdx], dmu_dsa_phi[upperIdx]);
+         lowerDirection.SetPtEtaPhi(
+           dmu_dsa_pt[lowerIdx], dmu_dsa_eta[lowerIdx], dmu_dsa_phi[lowerIdx]);
+         if (genDirection.Mag() > 0. && upperDirection.Mag() > 0.) {
+           evt_dsa_gen_cosAlpha_upper = genDirection.Unit().Dot(upperDirection.Unit());
+         }
+         if (genDirection.Mag() > 0. && lowerDirection.Mag() > 0.) {
+           evt_dsa_gen_cosAlpha_lower_reversed = -genDirection.Unit().Dot(lowerDirection.Unit());
+         }
+       }
 
        evt_dsa_passRawPair = (evt_dsa_cosAlpha_12 < std::cos(2.1));
        if (evt_dsa_passRawPair) {

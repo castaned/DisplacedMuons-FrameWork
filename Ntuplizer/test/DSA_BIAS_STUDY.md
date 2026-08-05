@@ -112,14 +112,34 @@ summaries versus upper-track `pt`; all histograms, fits, and graphs are saved in
 Run MC and DATA into separate output directories and compare the same plots
 before changing the production selection.
 
-## MC study plan
+## MC truth study
 
-The present ntuple does not write generator-level quantities. Although
-`ntuplizer.cc` includes generator-related headers, it has no generator token or
-handle and creates no generator branches. Existing bias-study ntuples therefore
-support reconstructed-level MC studies only.
+The MC MiniAOD contains `prunedGenParticles`. In the inspected 2024 campaign,
+each event has one status-1 cosmic muon near the upper detector boundary and
+several status-3 bookkeeping copies. The ntuplizer therefore selects:
 
-### Stage 1: existing MC ntuples
+- the status-1 muon with the largest global `y` as the detector-entry truth; and
+- the same-charge status-3 muon with the largest global `y` as the initial truth.
+
+Candidate counts and validity flags are stored so this convention can be checked
+before applying it to a different campaign. DATA does not consume generator
+products; its truth branches retain their reset values.
+
+The generator branches are:
+
+- `gen_status1_nMuon`, `gen_entry_valid`, and entry `pdgId`, charge, `pt`, `eta`,
+  `phi`, and vertex coordinates;
+- `gen_status3_nMuon`, `gen_initial_valid`, and initial `pdgId`, `pt`, `eta`,
+  `phi`, and vertex coordinates; and
+- `gen_entry_over_initial_pt`, which measures propagation loss before the muon
+  reaches the upper detector boundary.
+
+For an opposite-side DSA pair, the ntuplizer also stores
+`evt_dsa_gen_response_valid`, upper and lower response to entry truth, cosine
+agreement of the upper DSA direction, and cosine agreement after reversing the
+lower DSA direction.
+
+### Reconstructed-level comparison
 
 Run the same quality-matched geometric study independently for MC and DATA. Use:
 
@@ -136,7 +156,7 @@ alignment, calibration, and side-dependent reconstruction efficiency. Repeat
 the comparison in `eta`, `phi`, DT-hit, and relative-`pt`-error regions to locate
 where the discrepancy enters.
 
-### Stage 2: establish available truth products
+### Truth-product validation
 
 Inspect one parent EDM MC file on lxplus before changing the ntuplizer:
 
@@ -162,12 +182,11 @@ can be supplied explicitly:
 Set `DAS_INSTANCE` or `XROOTD_REDIRECTOR` in the environment only when a
 non-default DAS instance or redirector is required.
 
-If generator particles are available, add optional MC-only branches for the
-generated cosmic-muon momentum and direction, plus angular matching to both DSA
-tracks. Then compare upper and lower reconstructed response to the same generated
-muon. A single production-level generator momentum can identify a side-dependent
-reconstructed response, but it cannot by itself separate detector energy loss
-from reconstruction bias.
+New MC ntuples produce `dsa_response_to_gen_entry_comparison.png`,
+`dsa_response_vs_gen_entry_pt.png`, `dsa_direction_vs_gen_entry.png`, and
+`gen_entry_over_initial_pt.png`. A single detector-entry generator momentum can
+identify a side-dependent reconstructed response, but it cannot by itself
+separate energy loss while traversing CMS from lower-side reconstruction bias.
 
 For that separation, prefer `SimTrack`/`SimVertex`, `TrackingParticle`, or
 propagated truth states near the upper and lower muon systems. The decisive

@@ -196,6 +196,141 @@ def draw_pair_momentum_diagnostics(chain, selection, outdir):
     return objects
 
 
+def draw_mc_truth_diagnostics(chain, selection, outdir):
+    truth_branches = [
+        "gen_entry_valid",
+        "gen_entry_pt",
+        "gen_initial_valid",
+        "gen_entry_over_initial_pt",
+        "evt_dsa_gen_response_valid",
+        "evt_dsa_response_upper_gen_entry",
+        "evt_dsa_response_lower_gen_entry",
+        "evt_dsa_gen_cosAlpha_upper",
+        "evt_dsa_gen_cosAlpha_lower_reversed",
+    ]
+    if not all(chain.GetBranch(name) for name in truth_branches):
+        print("MC truth-response branches not found; skipping truth plots")
+        return []
+    if chain.GetEntries("gen_entry_valid") == 0:
+        print("No valid generator entry muons found; skipping truth plots")
+        return []
+
+    objects = []
+    truth_selection = f"({selection}) && evt_dsa_gen_response_valid"
+    h_upper_response = make_hist(
+        chain,
+        "h_upper_dsa_response_to_gen_entry",
+        "evt_dsa_response_upper_gen_entry",
+        truth_selection,
+        160,
+        -2.0,
+        6.0,
+    )
+    h_lower_response = make_hist(
+        chain,
+        "h_lower_dsa_response_to_gen_entry",
+        "evt_dsa_response_lower_gen_entry",
+        truth_selection,
+        160,
+        -2.0,
+        6.0,
+    )
+    objects.extend([h_upper_response, h_lower_response])
+    draw_overlay(
+        h_upper_response,
+        h_lower_response,
+        "upper DSA / generator entry",
+        "lower DSA / generator entry",
+        "(p_{T}^{reco}-p_{T}^{gen entry})/p_{T}^{gen entry}",
+        os.path.join(outdir, "dsa_response_to_gen_entry_comparison.png"),
+    )
+
+    h_upper_angle = make_hist(
+        chain,
+        "h_gen_cosAlpha_upper",
+        "evt_dsa_gen_cosAlpha_upper",
+        truth_selection,
+        100,
+        -1.0,
+        1.0,
+    )
+    h_lower_angle = make_hist(
+        chain,
+        "h_gen_cosAlpha_lower_reversed",
+        "evt_dsa_gen_cosAlpha_lower_reversed",
+        truth_selection,
+        100,
+        -1.0,
+        1.0,
+    )
+    objects.extend([h_upper_angle, h_lower_angle])
+    draw_overlay(
+        h_upper_angle,
+        h_lower_angle,
+        "upper DSA direction",
+        "reversed lower DSA direction",
+        "cosine with generator entry direction",
+        os.path.join(outdir, "dsa_direction_vs_gen_entry.png"),
+    )
+
+    h_entry_over_initial = make_hist(
+        chain,
+        "h_gen_entry_over_initial_pt",
+        "gen_entry_over_initial_pt",
+        f"({truth_selection}) && gen_initial_valid && gen_entry_over_initial_pt>0",
+        120,
+        0.0,
+        1.2,
+    )
+    objects.append(h_entry_over_initial)
+    draw_single(
+        h_entry_over_initial,
+        "generator entry p_{T} / initial p_{T}",
+        os.path.join(outdir, "gen_entry_over_initial_pt.png"),
+    )
+
+    upper_profile = ROOT.TProfile("p_upper_response_vs_gen_entry_pt", "", 80, 0.0, 400.0)
+    lower_profile = ROOT.TProfile("p_lower_response_vs_gen_entry_pt", "", 80, 0.0, 400.0)
+    chain.Draw(
+        "evt_dsa_response_upper_gen_entry:gen_entry_pt>>p_upper_response_vs_gen_entry_pt",
+        truth_selection,
+        "goff",
+    )
+    chain.Draw(
+        "evt_dsa_response_lower_gen_entry:gen_entry_pt>>p_lower_response_vs_gen_entry_pt",
+        truth_selection,
+        "goff",
+    )
+    upper_profile.SetDirectory(0)
+    lower_profile.SetDirectory(0)
+    upper_profile.SetMarkerStyle(20)
+    lower_profile.SetMarkerStyle(21)
+    upper_profile.SetMarkerColor(ROOT.kRed + 1)
+    lower_profile.SetMarkerColor(ROOT.kBlue + 1)
+    upper_profile.SetLineColor(ROOT.kRed + 1)
+    lower_profile.SetLineColor(ROOT.kBlue + 1)
+    upper_profile.GetXaxis().SetTitle("generator entry p_{T} [GeV]")
+    upper_profile.GetYaxis().SetTitle("mean reconstructed response")
+    upper_profile.SetMinimum(-1.0)
+    upper_profile.SetMaximum(2.0)
+    canvas_profile = ROOT.TCanvas("c_dsa_response_vs_gen_entry_pt", "", 900, 700)
+    upper_profile.Draw("E1")
+    lower_profile.Draw("E1 SAME")
+    zero = ROOT.TLine(0.0, 0.0, 400.0, 0.0)
+    zero.SetLineStyle(2)
+    zero.SetLineColor(ROOT.kGray + 2)
+    zero.Draw()
+    legend = ROOT.TLegend(0.58, 0.75, 0.88, 0.88)
+    legend.SetBorderSize(0)
+    legend.SetFillStyle(0)
+    legend.AddEntry(upper_profile, "upper DSA", "lp")
+    legend.AddEntry(lower_profile, "lower DSA", "lp")
+    legend.Draw()
+    canvas_profile.SaveAs(os.path.join(outdir, "dsa_response_vs_gen_entry_pt.png"))
+    objects.extend([upper_profile, lower_profile])
+    return objects
+
+
 def fit_single_gaussian(hist, name):
     """Fit one Gaussian model in a robust central range."""
     if hist.GetEntries() < 20 or hist.Integral() <= 0:
@@ -674,6 +809,7 @@ def main():
     objects.extend([mean_graph, count_graph])
 
     objects.extend(make_pair_resolution_plots(chain, resolution_selection, args.outdir))
+    objects.extend(draw_mc_truth_diagnostics(chain, resolution_selection, args.outdir))
 
     output_root = ROOT.TFile(os.path.join(args.outdir, "dsa_bias_study.root"), "RECREATE")
     for obj in objects:
