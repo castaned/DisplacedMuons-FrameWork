@@ -68,6 +68,71 @@ def draw_overlay(hist_a, hist_b, label_a, label_b, xtitle, output_path, logx=Fal
     canvas.SaveAs(output_path)
 
 
+def draw_three_overlay(hist_gen, hist_upper, hist_lower, xtitle, output_path):
+    for hist in (hist_gen, hist_upper, hist_lower):
+        normalize(hist)
+        hist.SetLineWidth(2)
+    hist_gen.SetLineColor(ROOT.kBlack)
+    hist_upper.SetLineColor(ROOT.kRed + 1)
+    hist_lower.SetLineColor(ROOT.kBlue + 1)
+    ymax = max(hist.GetMaximum() for hist in (hist_gen, hist_upper, hist_lower)) * 1.25
+    hist_gen.SetMaximum(ymax if ymax > 0 else 1.0)
+    hist_gen.SetMinimum(0.0)
+    hist_gen.GetXaxis().SetTitle(xtitle)
+    hist_gen.GetYaxis().SetTitle("Normalized events")
+
+    canvas = ROOT.TCanvas(f"c_{hist_gen.GetName()}_reco_comparison", "", 900, 700)
+    hist_gen.Draw("HIST")
+    hist_upper.Draw("HIST SAME")
+    hist_lower.Draw("HIST SAME")
+    legend = ROOT.TLegend(0.62, 0.72, 0.88, 0.88)
+    legend.SetBorderSize(0)
+    legend.SetFillStyle(0)
+    legend.AddEntry(hist_gen, "status 1 generator entry", "l")
+    legend.AddEntry(hist_upper, "upper DSA", "l")
+    legend.AddEntry(hist_lower, "lower DSA", "l")
+    legend.Draw()
+    canvas.SaveAs(output_path)
+
+
+def draw_reco_vs_gen_pt(chain, selection, output_path):
+    h_upper = ROOT.TH2F(
+        "h_upper_dsa_pt_vs_gen_entry_pt", "", 100, 0.0, 500.0, 100, 0.0, 500.0
+    )
+    h_lower = ROOT.TH2F(
+        "h_lower_dsa_pt_vs_gen_entry_pt", "", 100, 0.0, 500.0, 100, 0.0, 500.0
+    )
+    chain.Draw(
+        "evt_dsa_pt_upper:gen_entry_pt>>h_upper_dsa_pt_vs_gen_entry_pt", selection, "goff"
+    )
+    chain.Draw(
+        "evt_dsa_pt_lower:gen_entry_pt>>h_lower_dsa_pt_vs_gen_entry_pt", selection, "goff"
+    )
+    h_upper.SetDirectory(0)
+    h_lower.SetDirectory(0)
+    h_upper.GetXaxis().SetTitle("generator entry p_{T} [GeV]")
+    h_upper.GetYaxis().SetTitle("upper DSA p_{T} [GeV]")
+    h_lower.GetXaxis().SetTitle("generator entry p_{T} [GeV]")
+    h_lower.GetYaxis().SetTitle("lower DSA p_{T} [GeV]")
+
+    canvas = ROOT.TCanvas("c_dsa_pt_vs_gen_entry_pt", "", 1400, 650)
+    canvas.Divide(2, 1)
+    diagonals = []
+    for pad_index, hist in enumerate((h_upper, h_lower), start=1):
+        canvas.cd(pad_index)
+        ROOT.gPad.SetRightMargin(0.14)
+        ROOT.gPad.SetLogz()
+        hist.Draw("COLZ")
+        diagonal = ROOT.TLine(0.0, 0.0, 500.0, 500.0)
+        diagonal.SetLineColor(ROOT.kRed + 1)
+        diagonal.SetLineStyle(2)
+        diagonal.SetLineWidth(2)
+        diagonal.Draw()
+        diagonals.append(diagonal)
+    canvas.SaveAs(output_path)
+    return [h_upper, h_lower]
+
+
 def draw_single(hist, xtitle, output_path):
     hist.SetLineColor(ROOT.kBlue + 1)
     hist.SetLineWidth(2)
@@ -133,8 +198,8 @@ def draw_generator_kinematics(chain, outdir):
         print("Basic generator branches not found; skipping generator kinematics")
         return []
 
-    entry_selection = "gen_entry_valid"
-    initial_selection = "gen_initial_valid"
+    entry_selection = "gen_entry_valid && gen_entry_pt>20"
+    initial_selection = "gen_initial_valid && gen_entry_valid && gen_entry_pt>20"
     objects = []
 
     pt_edges = [10.0 * (300.0 ** (index / 120.0)) for index in range(121)]
@@ -360,7 +425,53 @@ def draw_mc_truth_diagnostics(chain, selection, outdir):
         return []
 
     objects = draw_generator_kinematics(chain, outdir)
-    truth_selection = f"({selection}) && evt_dsa_gen_response_valid"
+    truth_selection = (
+        f"({selection}) && evt_dsa_gen_response_valid && "
+        "gen_entry_valid && gen_entry_pt>20"
+    )
+
+    h_gen_pt_selected = make_hist(
+        chain,
+        "h_gen_entry_pt_selected",
+        "gen_entry_pt",
+        truth_selection,
+        100,
+        0.0,
+        500.0,
+    )
+    h_upper_pt_selected = make_hist(
+        chain,
+        "h_upper_dsa_pt_gen_selected",
+        "evt_dsa_pt_upper",
+        truth_selection,
+        100,
+        0.0,
+        500.0,
+    )
+    h_lower_pt_selected = make_hist(
+        chain,
+        "h_lower_dsa_pt_gen_selected",
+        "evt_dsa_pt_lower",
+        truth_selection,
+        100,
+        0.0,
+        500.0,
+    )
+    objects.extend([h_gen_pt_selected, h_upper_pt_selected, h_lower_pt_selected])
+    draw_three_overlay(
+        h_gen_pt_selected,
+        h_upper_pt_selected,
+        h_lower_pt_selected,
+        "p_{T} [GeV]",
+        os.path.join(outdir, "gen_entry_upper_lower_pt_comparison.png"),
+    )
+    objects.extend(
+        draw_reco_vs_gen_pt(
+            chain,
+            truth_selection,
+            os.path.join(outdir, "dsa_pt_vs_gen_entry_pt.png"),
+        )
+    )
     h_upper_response = make_hist(
         chain,
         "h_upper_dsa_response_to_gen_entry",
