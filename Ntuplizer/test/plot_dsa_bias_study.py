@@ -134,8 +134,16 @@ def draw_reco_vs_gen_pt(chain, selection, output_path):
 
 
 def draw_qoverpt_response_profiles(chain, selection, outdir):
-    upper_expression = "evt_dsa_qoverpt_upper*gen_entry_pt/gen_entry_charge-1"
-    lower_expression = "-evt_dsa_qoverpt_lower*gen_entry_pt/gen_entry_charge-1"
+    upper_aligned_qoverpt = (
+        "(evt_dsa_gen_cosAlpha_upper>=0"
+        " ? evt_dsa_qoverpt_upper : -evt_dsa_qoverpt_upper)"
+    )
+    lower_aligned_qoverpt = (
+        "((-evt_dsa_gen_cosAlpha_lower_reversed)>=0"
+        " ? evt_dsa_qoverpt_lower : -evt_dsa_qoverpt_lower)"
+    )
+    upper_expression = f"({upper_aligned_qoverpt})*gen_entry_pt/gen_entry_charge-1"
+    lower_expression = f"({lower_aligned_qoverpt})*gen_entry_pt/gen_entry_charge-1"
     qoverpt_selection = f"({selection}) && abs(gen_entry_charge)>0.5"
 
     h_upper = make_hist(
@@ -159,8 +167,8 @@ def draw_qoverpt_response_profiles(chain, selection, outdir):
     draw_overlay(
         h_upper,
         h_lower,
-        "upper DSA",
-        "lower DSA (direction reversed)",
+        "upper DSA (direction aligned)",
+        "lower DSA (direction aligned)",
         "((q/p_{T})^{reco}-(q/p_{T})^{gen})/(q/p_{T})^{gen}",
         os.path.join(outdir, "dsa_qoverpt_response_to_gen_entry_comparison.png"),
     )
@@ -171,15 +179,19 @@ def draw_qoverpt_response_profiles(chain, selection, outdir):
     lower_profile = ROOT.TProfile(
         "p_lower_qoverpt_response_vs_gen_entry_pt", "", 60, 20.0, 500.0
     )
-    chain.Draw(
+    upper_profile_entries = chain.Draw(
         f"{upper_expression}:gen_entry_pt>>p_upper_qoverpt_response_vs_gen_entry_pt",
         qoverpt_selection,
         "goff",
     )
-    chain.Draw(
+    lower_profile_entries = chain.Draw(
         f"{lower_expression}:gen_entry_pt>>p_lower_qoverpt_response_vs_gen_entry_pt",
         qoverpt_selection,
         "goff",
+    )
+    print(
+        "Direction-aligned q/pT profile entries: "
+        f"upper={upper_profile_entries}, lower={lower_profile_entries}"
     )
     upper_profile.SetDirectory(0)
     lower_profile.SetDirectory(0)
@@ -191,8 +203,8 @@ def draw_qoverpt_response_profiles(chain, selection, outdir):
     lower_profile.SetLineColor(ROOT.kBlue + 1)
     upper_profile.GetXaxis().SetTitle("generator entry p_{T} [GeV]")
     upper_profile.GetYaxis().SetTitle("mean relative q/p_{T} response")
-    upper_profile.SetMinimum(-1.0)
-    upper_profile.SetMaximum(1.0)
+    upper_profile.SetMinimum(-2.5)
+    upper_profile.SetMaximum(2.5)
 
     canvas = ROOT.TCanvas("c_dsa_qoverpt_response_vs_gen_entry_pt", "", 900, 700)
     upper_profile.Draw("E1")
@@ -204,8 +216,8 @@ def draw_qoverpt_response_profiles(chain, selection, outdir):
     legend = ROOT.TLegend(0.55, 0.75, 0.88, 0.88)
     legend.SetBorderSize(0)
     legend.SetFillStyle(0)
-    legend.AddEntry(upper_profile, "upper DSA", "lp")
-    legend.AddEntry(lower_profile, "lower DSA (direction reversed)", "lp")
+    legend.AddEntry(upper_profile, "upper DSA (direction aligned)", "lp")
+    legend.AddEntry(lower_profile, "lower DSA (direction aligned)", "lp")
     legend.Draw()
     canvas.SaveAs(os.path.join(outdir, "dsa_qoverpt_response_vs_gen_entry_pt.png"))
     return [h_upper, h_lower, upper_profile, lower_profile]
@@ -221,11 +233,11 @@ def draw_single(hist, xtitle, output_path):
     canvas.SaveAs(output_path)
 
 
-def draw_generator_pt_spectrum(hist, output_path):
+def draw_generator_spectrum(hist, xtitle, output_path):
     hist.SetLineColor(ROOT.kBlue + 2)
     hist.SetLineWidth(2)
     hist.SetFillColorAlpha(ROOT.kAzure - 9, 0.75)
-    hist.GetXaxis().SetTitle("generated CMS-entry muon p_{T} [GeV]")
+    hist.GetXaxis().SetTitle(xtitle)
     hist.GetYaxis().SetTitle("Events")
     hist.SetMinimum(0.5)
 
@@ -308,9 +320,26 @@ def draw_generator_kinematics(chain, outdir):
         500.0,
     )
     objects.append(h_entry_pt_spectrum)
-    draw_generator_pt_spectrum(
+    draw_generator_spectrum(
         h_entry_pt_spectrum,
+        "generated CMS-entry muon p_{T} [GeV]",
         os.path.join(outdir, "gen_entry_pt_spectrum.png"),
+    )
+
+    h_entry_eta_spectrum = make_hist(
+        chain,
+        "h_gen_entry_eta_spectrum",
+        "gen_entry_eta",
+        entry_selection,
+        100,
+        -1.5,
+        1.5,
+    )
+    objects.append(h_entry_eta_spectrum)
+    draw_generator_spectrum(
+        h_entry_eta_spectrum,
+        "generated CMS-entry muon #eta",
+        os.path.join(outdir, "gen_entry_eta_spectrum.png"),
     )
 
     comparisons = [
