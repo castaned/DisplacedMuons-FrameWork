@@ -78,6 +78,32 @@ def draw_single(hist, xtitle, output_path):
     canvas.SaveAs(output_path)
 
 
+def draw_generator_pt_spectrum(hist, output_path):
+    hist.SetLineColor(ROOT.kBlue + 2)
+    hist.SetLineWidth(2)
+    hist.SetFillColorAlpha(ROOT.kAzure - 9, 0.75)
+    hist.GetXaxis().SetTitle("generated CMS-entry muon p_{T} [GeV]")
+    hist.GetYaxis().SetTitle("Events")
+    hist.SetMinimum(0.5)
+
+    canvas = ROOT.TCanvas(f"c_{hist.GetName()}", "", 800, 800)
+    canvas.SetLogy()
+    canvas.SetLeftMargin(0.14)
+    canvas.SetBottomMargin(0.13)
+    canvas.SetTopMargin(0.09)
+    hist.Draw("HIST")
+
+    label = ROOT.TLatex()
+    label.SetNDC()
+    label.SetTextFont(62)
+    label.SetTextSize(0.048)
+    label.DrawLatex(0.14, 0.93, "CMS")
+    label.SetTextFont(52)
+    label.SetTextSize(0.040)
+    label.DrawLatex(0.25, 0.93, "Simulation")
+    canvas.SaveAs(output_path)
+
+
 def make_hist_edges(chain, name, expression, selection, edges):
     hist = ROOT.TH1F(name, "", len(edges) - 1, array("d", edges))
     chain.Draw(f"{expression}>>{name}", selection, "goff")
@@ -127,6 +153,21 @@ def draw_generator_kinematics(chain, outdir):
         "generator muon p_{T} [GeV]",
         os.path.join(outdir, "gen_pt_initial_entry_comparison.png"),
         logx=True,
+    )
+
+    h_entry_pt_spectrum = make_hist(
+        chain,
+        "h_gen_entry_pt_spectrum",
+        "gen_entry_pt",
+        entry_selection,
+        100,
+        0.0,
+        500.0,
+    )
+    objects.append(h_entry_pt_spectrum)
+    draw_generator_pt_spectrum(
+        h_entry_pt_spectrum,
+        os.path.join(outdir, "gen_entry_pt_spectrum.png"),
     )
 
     comparisons = [
