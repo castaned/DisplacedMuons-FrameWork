@@ -42,7 +42,7 @@ def normalize(hist):
         hist.Scale(1.0 / integral)
 
 
-def draw_overlay(hist_a, hist_b, label_a, label_b, xtitle, output_path):
+def draw_overlay(hist_a, hist_b, label_a, label_b, xtitle, output_path, logx=False):
     normalize(hist_a)
     normalize(hist_b)
     hist_a.SetLineColor(ROOT.kRed + 1)
@@ -56,6 +56,7 @@ def draw_overlay(hist_a, hist_b, label_a, label_b, xtitle, output_path):
     hist_a.GetYaxis().SetTitle("Normalized events")
 
     canvas = ROOT.TCanvas(f"c_{hist_a.GetName()}", "", 900, 700)
+    canvas.SetLogx(logx)
     hist_a.Draw("HIST")
     hist_b.Draw("HIST SAME")
     legend = ROOT.TLegend(0.66, 0.76, 0.88, 0.88)
@@ -75,6 +76,108 @@ def draw_single(hist, xtitle, output_path):
     canvas = ROOT.TCanvas(f"c_{hist.GetName()}", "", 900, 700)
     hist.Draw("HIST")
     canvas.SaveAs(output_path)
+
+
+def make_hist_edges(chain, name, expression, selection, edges):
+    hist = ROOT.TH1F(name, "", len(edges) - 1, array("d", edges))
+    chain.Draw(f"{expression}>>{name}", selection, "goff")
+    hist.SetDirectory(0)
+    return hist
+
+
+def draw_generator_kinematics(chain, outdir):
+    branches = [
+        "gen_status1_nMuon",
+        "gen_entry_valid",
+        "gen_entry_pdgId",
+        "gen_entry_charge",
+        "gen_entry_pt",
+        "gen_entry_eta",
+        "gen_entry_phi",
+        "gen_entry_vy",
+        "gen_status3_nMuon",
+        "gen_initial_valid",
+        "gen_initial_pdgId",
+        "gen_initial_pt",
+        "gen_initial_eta",
+        "gen_initial_phi",
+        "gen_initial_vy",
+    ]
+    if not all(chain.GetBranch(name) for name in branches):
+        print("Basic generator branches not found; skipping generator kinematics")
+        return []
+
+    entry_selection = "gen_entry_valid"
+    initial_selection = "gen_initial_valid"
+    objects = []
+
+    pt_edges = [10.0 * (300.0 ** (index / 120.0)) for index in range(121)]
+    h_initial_pt = make_hist_edges(
+        chain, "h_gen_initial_pt", "gen_initial_pt", initial_selection, pt_edges
+    )
+    h_entry_pt = make_hist_edges(
+        chain, "h_gen_entry_pt", "gen_entry_pt", entry_selection, pt_edges
+    )
+    objects.extend([h_initial_pt, h_entry_pt])
+    draw_overlay(
+        h_initial_pt,
+        h_entry_pt,
+        "status 3 initial muon",
+        "status 1 CMS-entry muon",
+        "generator muon p_{T} [GeV]",
+        os.path.join(outdir, "gen_pt_initial_entry_comparison.png"),
+        logx=True,
+    )
+
+    comparisons = [
+        ("eta", "gen_initial_eta", "gen_entry_eta", 120, -3.0, 3.0, "generator muon #eta"),
+        ("phi", "gen_initial_phi", "gen_entry_phi", 128, -3.2, 3.2, "generator muon #phi"),
+        ("pdgid", "gen_initial_pdgId", "gen_entry_pdgId", 31, -15.5, 15.5, "generator muon PDG ID"),
+        ("vertex_y", "gen_initial_vy", "gen_entry_vy", 160, -1000.0, 10000.0, "generator vertex y [cm]"),
+    ]
+    for name, initial_expr, entry_expr, bins, xmin, xmax, xtitle in comparisons:
+        h_initial = make_hist(
+            chain, f"h_gen_initial_{name}", initial_expr, initial_selection, bins, xmin, xmax
+        )
+        h_entry = make_hist(
+            chain, f"h_gen_entry_{name}", entry_expr, entry_selection, bins, xmin, xmax
+        )
+        objects.extend([h_initial, h_entry])
+        draw_overlay(
+            h_initial,
+            h_entry,
+            "status 3 initial muon",
+            "status 1 CMS-entry muon",
+            xtitle,
+            os.path.join(outdir, f"gen_{name}_initial_entry_comparison.png"),
+        )
+
+    h_status1_count = make_hist(
+        chain, "h_gen_status1_nMuon", "gen_status1_nMuon", "", 11, -0.5, 10.5
+    )
+    h_status3_count = make_hist(
+        chain, "h_gen_status3_nMuon", "gen_status3_nMuon", "", 11, -0.5, 10.5
+    )
+    objects.extend([h_status1_count, h_status3_count])
+    draw_overlay(
+        h_status1_count,
+        h_status3_count,
+        "status 1 muons",
+        "status 3 muons",
+        "generator muon multiplicity per event",
+        os.path.join(outdir, "gen_status_muon_multiplicity.png"),
+    )
+
+    h_entry_charge = make_hist(
+        chain, "h_gen_entry_charge", "gen_entry_charge", entry_selection, 5, -2.5, 2.5
+    )
+    objects.append(h_entry_charge)
+    draw_single(
+        h_entry_charge,
+        "status 1 CMS-entry muon charge",
+        os.path.join(outdir, "gen_entry_charge.png"),
+    )
+    return objects
 
 
 def draw_2d(chain, expression, selection, output_path):
@@ -215,7 +318,7 @@ def draw_mc_truth_diagnostics(chain, selection, outdir):
         print("No valid generator entry muons found; skipping truth plots")
         return []
 
-    objects = []
+    objects = draw_generator_kinematics(chain, outdir)
     truth_selection = f"({selection}) && evt_dsa_gen_response_valid"
     h_upper_response = make_hist(
         chain,
