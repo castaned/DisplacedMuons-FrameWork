@@ -133,6 +133,84 @@ def draw_reco_vs_gen_pt(chain, selection, output_path):
     return [h_upper, h_lower]
 
 
+def draw_qoverpt_response_profiles(chain, selection, outdir):
+    upper_expression = "evt_dsa_qoverpt_upper*gen_entry_pt/gen_entry_charge-1"
+    lower_expression = "-evt_dsa_qoverpt_lower*gen_entry_pt/gen_entry_charge-1"
+    qoverpt_selection = f"({selection}) && abs(gen_entry_charge)>0.5"
+
+    h_upper = make_hist(
+        chain,
+        "h_upper_dsa_qoverpt_response_to_gen_entry",
+        upper_expression,
+        qoverpt_selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    h_lower = make_hist(
+        chain,
+        "h_lower_dsa_qoverpt_response_to_gen_entry",
+        lower_expression,
+        qoverpt_selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    draw_overlay(
+        h_upper,
+        h_lower,
+        "upper DSA",
+        "lower DSA (direction reversed)",
+        "((q/p_{T})^{reco}-(q/p_{T})^{gen})/(q/p_{T})^{gen}",
+        os.path.join(outdir, "dsa_qoverpt_response_to_gen_entry_comparison.png"),
+    )
+
+    upper_profile = ROOT.TProfile(
+        "p_upper_qoverpt_response_vs_gen_entry_pt", "", 60, 20.0, 500.0
+    )
+    lower_profile = ROOT.TProfile(
+        "p_lower_qoverpt_response_vs_gen_entry_pt", "", 60, 20.0, 500.0
+    )
+    chain.Draw(
+        f"{upper_expression}:gen_entry_pt>>p_upper_qoverpt_response_vs_gen_entry_pt",
+        qoverpt_selection,
+        "goff",
+    )
+    chain.Draw(
+        f"{lower_expression}:gen_entry_pt>>p_lower_qoverpt_response_vs_gen_entry_pt",
+        qoverpt_selection,
+        "goff",
+    )
+    upper_profile.SetDirectory(0)
+    lower_profile.SetDirectory(0)
+    upper_profile.SetMarkerStyle(20)
+    lower_profile.SetMarkerStyle(21)
+    upper_profile.SetMarkerColor(ROOT.kRed + 1)
+    lower_profile.SetMarkerColor(ROOT.kBlue + 1)
+    upper_profile.SetLineColor(ROOT.kRed + 1)
+    lower_profile.SetLineColor(ROOT.kBlue + 1)
+    upper_profile.GetXaxis().SetTitle("generator entry p_{T} [GeV]")
+    upper_profile.GetYaxis().SetTitle("mean relative q/p_{T} response")
+    upper_profile.SetMinimum(-1.0)
+    upper_profile.SetMaximum(1.0)
+
+    canvas = ROOT.TCanvas("c_dsa_qoverpt_response_vs_gen_entry_pt", "", 900, 700)
+    upper_profile.Draw("E1")
+    lower_profile.Draw("E1 SAME")
+    zero = ROOT.TLine(20.0, 0.0, 500.0, 0.0)
+    zero.SetLineStyle(2)
+    zero.SetLineColor(ROOT.kGray + 2)
+    zero.Draw()
+    legend = ROOT.TLegend(0.55, 0.75, 0.88, 0.88)
+    legend.SetBorderSize(0)
+    legend.SetFillStyle(0)
+    legend.AddEntry(upper_profile, "upper DSA", "lp")
+    legend.AddEntry(lower_profile, "lower DSA (direction reversed)", "lp")
+    legend.Draw()
+    canvas.SaveAs(os.path.join(outdir, "dsa_qoverpt_response_vs_gen_entry_pt.png"))
+    return [h_upper, h_lower, upper_profile, lower_profile]
+
+
 def draw_single(hist, xtitle, output_path):
     hist.SetLineColor(ROOT.kBlue + 1)
     hist.SetLineWidth(2)
@@ -414,6 +492,9 @@ def draw_mc_truth_diagnostics(chain, selection, outdir):
         "evt_dsa_gen_response_valid",
         "evt_dsa_response_upper_gen_entry",
         "evt_dsa_response_lower_gen_entry",
+        "evt_dsa_qoverpt_upper",
+        "evt_dsa_qoverpt_lower",
+        "gen_entry_charge",
         "evt_dsa_gen_cosAlpha_upper",
         "evt_dsa_gen_cosAlpha_lower_reversed",
     ]
@@ -499,6 +580,7 @@ def draw_mc_truth_diagnostics(chain, selection, outdir):
         "(p_{T}^{reco}-p_{T}^{gen entry})/p_{T}^{gen entry}",
         os.path.join(outdir, "dsa_response_to_gen_entry_comparison.png"),
     )
+    objects.extend(draw_qoverpt_response_profiles(chain, truth_selection, outdir))
 
     h_upper_angle = make_hist(
         chain,
