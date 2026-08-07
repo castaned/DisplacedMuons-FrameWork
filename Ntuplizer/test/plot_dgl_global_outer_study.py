@@ -421,13 +421,6 @@ def main():
         "gen_entry_eta",
         "gen_entry_phi",
         "gen_entry_vy",
-        "gen_status3_nMuon",
-        "gen_initial_valid",
-        "gen_initial_pdgId",
-        "gen_initial_pt",
-        "gen_initial_eta",
-        "gen_initial_phi",
-        "gen_initial_vy",
     )
     has_generator_kinematics = all(
         chain.GetBranch(name) for name in generator_kinematic_branches
@@ -877,7 +870,7 @@ def main():
         draw_overlay(
             h_global_upper_gen_response,
             h_global_lower_gen_response,
-            "(p_{T}^{global}-p_{T}^{gen entry})/p_{T}^{gen entry}",
+            "(p_{T}^{global}-p_{T}^{status-1 gen})/p_{T}^{status-1 gen}",
             os.path.join(args.outdir, "gen_response_upper_lower_global.png"),
             "upper DGL global track",
             "lower DGL global track",
@@ -885,7 +878,7 @@ def main():
         draw_overlay(
             h_outer_upper_gen_response,
             h_outer_lower_gen_response,
-            "(p_{T}^{outer}-p_{T}^{gen entry})/p_{T}^{gen entry}",
+            "(p_{T}^{outer}-p_{T}^{status-1 gen})/p_{T}^{status-1 gen}",
             os.path.join(args.outdir, "gen_response_upper_lower_outer.png"),
             "upper DGL outer track",
             "lower DGL outer track",

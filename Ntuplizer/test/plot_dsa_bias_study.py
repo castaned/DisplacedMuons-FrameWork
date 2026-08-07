@@ -290,39 +290,13 @@ def draw_generator_kinematics(chain, outdir):
         "gen_entry_eta",
         "gen_entry_phi",
         "gen_entry_vy",
-        "gen_status3_nMuon",
-        "gen_initial_valid",
-        "gen_initial_pdgId",
-        "gen_initial_pt",
-        "gen_initial_eta",
-        "gen_initial_phi",
-        "gen_initial_vy",
     ]
     if not all(chain.GetBranch(name) for name in branches):
-        print("Basic generator branches not found; skipping generator kinematics")
+        print("Status-1 generator branches not found; skipping generator kinematics")
         return []
 
     entry_selection = "gen_entry_valid && gen_entry_pt>20"
-    initial_selection = "gen_initial_valid && gen_entry_valid && gen_entry_pt>20"
     objects = []
-
-    pt_edges = [10.0 * (300.0 ** (index / 120.0)) for index in range(121)]
-    h_initial_pt = make_hist_edges(
-        chain, "h_gen_initial_pt", "gen_initial_pt", initial_selection, pt_edges
-    )
-    h_entry_pt = make_hist_edges(
-        chain, "h_gen_entry_pt", "gen_entry_pt", entry_selection, pt_edges
-    )
-    objects.extend([h_initial_pt, h_entry_pt])
-    draw_overlay(
-        h_initial_pt,
-        h_entry_pt,
-        "status 3 initial muon",
-        "status 1 CMS-entry muon",
-        "generator muon p_{T} [GeV]",
-        os.path.join(outdir, "gen_pt_initial_entry_comparison.png"),
-        logx=True,
-    )
 
     h_entry_pt_spectrum = make_hist(
         chain,
@@ -356,43 +330,32 @@ def draw_generator_kinematics(chain, outdir):
         os.path.join(outdir, "gen_entry_eta_spectrum.png"),
     )
 
-    comparisons = [
-        ("eta", "gen_initial_eta", "gen_entry_eta", 120, -3.0, 3.0, "generator muon #eta"),
-        ("phi", "gen_initial_phi", "gen_entry_phi", 128, -3.2, 3.2, "generator muon #phi"),
-        ("pdgid", "gen_initial_pdgId", "gen_entry_pdgId", 31, -15.5, 15.5, "generator muon PDG ID"),
-        ("vertex_y", "gen_initial_vy", "gen_entry_vy", 160, -1000.0, 10000.0, "generator vertex y [cm]"),
+    distributions = [
+        ("phi", "gen_entry_phi", 128, -3.2, 3.2, "status-1 generator muon #phi"),
+        ("pdgid", "gen_entry_pdgId", 31, -15.5, 15.5, "status-1 generator muon PDG ID"),
+        ("vertex_y", "gen_entry_vy", 160, -1000.0, 10000.0, "status-1 generator vertex y [cm]"),
     ]
-    for name, initial_expr, entry_expr, bins, xmin, xmax, xtitle in comparisons:
-        h_initial = make_hist(
-            chain, f"h_gen_initial_{name}", initial_expr, initial_selection, bins, xmin, xmax
+    for name, expression, bins, xmin, xmax, xtitle in distributions:
+        hist = make_hist(
+            chain,
+            f"h_gen_entry_{name}",
+            expression,
+            entry_selection,
+            bins,
+            xmin,
+            xmax,
         )
-        h_entry = make_hist(
-            chain, f"h_gen_entry_{name}", entry_expr, entry_selection, bins, xmin, xmax
-        )
-        objects.extend([h_initial, h_entry])
-        draw_overlay(
-            h_initial,
-            h_entry,
-            "status 3 initial muon",
-            "status 1 CMS-entry muon",
-            xtitle,
-            os.path.join(outdir, f"gen_{name}_initial_entry_comparison.png"),
-        )
+        objects.append(hist)
+        draw_single(hist, xtitle, os.path.join(outdir, f"gen_entry_{name}.png"))
 
     h_status1_count = make_hist(
         chain, "h_gen_status1_nMuon", "gen_status1_nMuon", "", 11, -0.5, 10.5
     )
-    h_status3_count = make_hist(
-        chain, "h_gen_status3_nMuon", "gen_status3_nMuon", "", 11, -0.5, 10.5
-    )
-    objects.extend([h_status1_count, h_status3_count])
-    draw_overlay(
+    objects.append(h_status1_count)
+    draw_single(
         h_status1_count,
-        h_status3_count,
-        "status 1 muons",
-        "status 3 muons",
-        "generator muon multiplicity per event",
-        os.path.join(outdir, "gen_status_muon_multiplicity.png"),
+        "status-1 generator muon multiplicity per event",
+        os.path.join(outdir, "gen_status1_muon_multiplicity.png"),
     )
 
     h_entry_charge = make_hist(
@@ -401,7 +364,7 @@ def draw_generator_kinematics(chain, outdir):
     objects.append(h_entry_charge)
     draw_single(
         h_entry_charge,
-        "status 1 CMS-entry muon charge",
+        "status-1 CMS-entry muon charge",
         os.path.join(outdir, "gen_entry_charge.png"),
     )
     return objects
@@ -530,8 +493,6 @@ def draw_mc_truth_diagnostics(chain, selection, outdir):
     truth_branches = [
         "gen_entry_valid",
         "gen_entry_pt",
-        "gen_initial_valid",
-        "gen_entry_over_initial_pt",
         "evt_dsa_gen_response_valid",
         "evt_dsa_response_upper_gen_entry",
         "evt_dsa_response_lower_gen_entry",
@@ -651,22 +612,6 @@ def draw_mc_truth_diagnostics(chain, selection, outdir):
         "reversed lower DSA direction",
         "cosine with generator entry direction",
         os.path.join(outdir, "dsa_direction_vs_gen_entry.png"),
-    )
-
-    h_entry_over_initial = make_hist(
-        chain,
-        "h_gen_entry_over_initial_pt",
-        "gen_entry_over_initial_pt",
-        f"({truth_selection}) && gen_initial_valid && gen_entry_over_initial_pt>0",
-        120,
-        0.0,
-        1.2,
-    )
-    objects.append(h_entry_over_initial)
-    draw_single(
-        h_entry_over_initial,
-        "generator entry p_{T} / initial p_{T}",
-        os.path.join(outdir, "gen_entry_over_initial_pt.png"),
     )
 
     upper_profile = ROOT.TProfile("p_upper_response_vs_gen_entry_pt", "", 80, 0.0, 400.0)
