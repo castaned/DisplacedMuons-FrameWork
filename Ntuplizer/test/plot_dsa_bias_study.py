@@ -303,9 +303,9 @@ def draw_generator_kinematics(chain, outdir):
         "h_gen_entry_pt_spectrum",
         "gen_entry_pt",
         entry_selection,
-        100,
+        200,
         0.0,
-        500.0,
+        1000.0,
     )
     objects.append(h_entry_pt_spectrum)
     draw_generator_spectrum(
