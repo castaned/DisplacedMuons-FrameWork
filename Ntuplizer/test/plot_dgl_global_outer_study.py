@@ -450,6 +450,34 @@ def main():
         os.path.join(args.outdir, "global_vs_outer_pt_upper_lower.png"),
     )
 
+    h_upper_global_pt = make_hist(
+        chain, "h_upper_global_pt", global_upper, selection, 100, 0.0, 500.0
+    )
+    h_upper_outer_pt = make_hist(
+        chain, "h_upper_outer_pt", outer_upper, selection, 100, 0.0, 500.0
+    )
+    h_lower_global_pt = make_hist(
+        chain, "h_lower_global_pt", global_lower, selection, 100, 0.0, 500.0
+    )
+    h_lower_outer_pt = make_hist(
+        chain, "h_lower_outer_pt", outer_lower, selection, 100, 0.0, 500.0
+    )
+    objects.extend(
+        [h_upper_global_pt, h_upper_outer_pt, h_lower_global_pt, h_lower_outer_pt]
+    )
+    draw_overlay(
+        h_upper_global_pt,
+        h_upper_outer_pt,
+        "upper DGL p_{T} [GeV]",
+        os.path.join(args.outdir, "pt_upper_global_vs_outer.png"),
+    )
+    draw_overlay(
+        h_lower_global_pt,
+        h_lower_outer_pt,
+        "lower DGL p_{T} [GeV]",
+        os.path.join(args.outdir, "pt_lower_global_vs_outer.png"),
+    )
+
     h_global_asymmetry = make_hist(
         chain, "h_global_upper_lower_pt_asymmetry", global_asymmetry, selection, 160, -2.0, 2.0
     )
