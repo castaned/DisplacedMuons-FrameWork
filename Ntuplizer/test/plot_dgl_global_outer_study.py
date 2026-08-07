@@ -627,6 +627,25 @@ def main():
         os.path.join(args.outdir, "outer_inverse_pt_relative_residual.png"),
     )
 
+    global_inverse_pt_residual = (
+        f"((1.0/({global_upper}))-(1.0/({global_lower})))/(1.0/({global_lower}))"
+    )
+    h_global_inverse_pt_residual = make_hist(
+        chain,
+        "h_global_inverse_pt_relative_residual",
+        global_inverse_pt_residual,
+        selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    objects.append(h_global_inverse_pt_residual)
+    draw_distribution(
+        h_global_inverse_pt_residual,
+        "[(1/p_{T}^{upper})-(1/p_{T}^{lower})]/(1/p_{T}^{lower})",
+        os.path.join(args.outdir, "global_inverse_pt_relative_residual.png"),
+    )
+
     h_asymmetry_correlation = make_hist2d(
         chain,
         "h_outer_vs_global_pt_asymmetry",
