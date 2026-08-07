@@ -717,57 +717,27 @@ def main():
         "outer-track fit; outer p_{T}>20 GeV",
     )
 
-    global_qoverpt_residual = (
-        f"(({global_qoverpt_upper})-({global_qoverpt_lower}))"
+    global_qoverpt_aligned_residual = (
+        f"(({global_qoverpt_upper})+({global_qoverpt_lower}))"
         f"/abs({global_qoverpt_lower})"
     )
-    outer_qoverpt_residual = (
-        f"(({outer_qoverpt_upper})-({outer_qoverpt_lower}))"
+    outer_qoverpt_aligned_residual = (
+        f"(({outer_qoverpt_upper})+({outer_qoverpt_lower}))"
         f"/abs({outer_qoverpt_lower})"
     )
-    h_global_qoverpt_residual = make_hist(
+    h_global_qoverpt_aligned_residual_outer_pt20 = make_hist(
         chain,
-        "h_global_qoverpt_relative_residual",
-        global_qoverpt_residual,
-        selection,
-        200,
-        -5.0,
-        5.0,
-    )
-    h_outer_qoverpt_residual = make_hist(
-        chain,
-        "h_outer_qoverpt_relative_residual",
-        outer_qoverpt_residual,
-        selection,
-        200,
-        -5.0,
-        5.0,
-    )
-    objects.extend([h_global_qoverpt_residual, h_outer_qoverpt_residual])
-    draw_overlay(
-        h_global_qoverpt_residual,
-        h_outer_qoverpt_residual,
-        "[(q/p_{T})^{upper}-(q/p_{T})^{lower}]/|(q/p_{T})^{lower}|",
-        os.path.join(
-            args.outdir, "qoverpt_relative_residual_global_vs_outer.png"
-        ),
-        "global-track fit",
-        "outer-track fit",
-    )
-
-    h_global_qoverpt_residual_outer_pt20 = make_hist(
-        chain,
-        "h_global_qoverpt_relative_residual_outer_pt20",
-        global_qoverpt_residual,
+        "h_global_qoverpt_direction_aligned_residual_outer_pt20",
+        global_qoverpt_aligned_residual,
         outer_pt20_selection,
         200,
         -5.0,
         5.0,
     )
-    h_outer_qoverpt_residual_outer_pt20 = make_hist(
+    h_outer_qoverpt_aligned_residual_outer_pt20 = make_hist(
         chain,
-        "h_outer_qoverpt_relative_residual_outer_pt20",
-        outer_qoverpt_residual,
+        "h_outer_qoverpt_direction_aligned_residual_outer_pt20",
+        outer_qoverpt_aligned_residual,
         outer_pt20_selection,
         200,
         -5.0,
@@ -775,20 +745,25 @@ def main():
     )
     objects.extend(
         [
-            h_global_qoverpt_residual_outer_pt20,
-            h_outer_qoverpt_residual_outer_pt20,
+            h_global_qoverpt_aligned_residual_outer_pt20,
+            h_outer_qoverpt_aligned_residual_outer_pt20,
         ]
     )
-    draw_overlay(
-        h_global_qoverpt_residual_outer_pt20,
-        h_outer_qoverpt_residual_outer_pt20,
-        "[(q/p_{T})^{upper}-(q/p_{T})^{lower}]/|(q/p_{T})^{lower}|",
+    draw_distribution(
+        h_global_qoverpt_aligned_residual_outer_pt20,
+        "[(q/p_{T})^{upper}+(q/p_{T})^{lower}]/|(q/p_{T})^{lower}|",
         os.path.join(
             args.outdir,
-            "qoverpt_relative_residual_global_vs_outer_outerpt20.png",
+            "global_qoverpt_direction_aligned_residual_outerpt20.png",
         ),
-        "global-track fit; outer p_{T}>20 GeV",
-        "outer-track fit; outer p_{T}>20 GeV",
+    )
+    draw_distribution(
+        h_outer_qoverpt_aligned_residual_outer_pt20,
+        "[(q/p_{T})^{upper}+(q/p_{T})^{lower}]/|(q/p_{T})^{lower}|",
+        os.path.join(
+            args.outdir,
+            "outer_qoverpt_direction_aligned_residual_outerpt20.png",
+        ),
     )
 
     h_asymmetry_correlation = make_hist2d(
