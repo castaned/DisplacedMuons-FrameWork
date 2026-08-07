@@ -125,6 +125,23 @@ def draw_overlay(
     canvas.SaveAs(output_path)
 
 
+def draw_distribution(hist, xtitle, output_path):
+    normalize(hist)
+    hist.SetLineColor(ROOT.kBlue + 1)
+    hist.SetLineWidth(2)
+    hist.SetMinimum(0.0)
+    hist.GetXaxis().SetTitle(xtitle)
+    hist.GetYaxis().SetTitle("Normalized events")
+
+    canvas = ROOT.TCanvas(f"c_{hist.GetName()}", "", 900, 700)
+    hist.Draw("HIST")
+    zero = ROOT.TLine(0.0, 0.0, 0.0, 1.05 * hist.GetMaximum())
+    zero.SetLineColor(ROOT.kGray + 2)
+    zero.SetLineStyle(2)
+    zero.Draw()
+    canvas.SaveAs(output_path)
+
+
 def draw_two_pt_correlations(hist_global, hist_outer, output_path):
     hist_global.GetXaxis().SetTitle("upper p_{T}^{global} [GeV]")
     hist_global.GetYaxis().SetTitle("lower p_{T}^{global} [GeV]")
@@ -589,6 +606,25 @@ def main():
         h_outer_asymmetry,
         "2(p_{T}^{lower}-p_{T}^{upper})/(p_{T}^{lower}+p_{T}^{upper})",
         os.path.join(args.outdir, "upper_lower_pt_asymmetry_global_outer.png"),
+    )
+
+    outer_inverse_pt_residual = (
+        f"((1.0/({outer_upper}))-(1.0/({outer_lower})))/(1.0/({outer_lower}))"
+    )
+    h_outer_inverse_pt_residual = make_hist(
+        chain,
+        "h_outer_inverse_pt_relative_residual",
+        outer_inverse_pt_residual,
+        selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    objects.append(h_outer_inverse_pt_residual)
+    draw_distribution(
+        h_outer_inverse_pt_residual,
+        "[(1/p_{T}^{upper})-(1/p_{T}^{lower})]/(1/p_{T}^{lower})",
+        os.path.join(args.outdir, "outer_inverse_pt_relative_residual.png"),
     )
 
     h_asymmetry_correlation = make_hist2d(
