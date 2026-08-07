@@ -4,6 +4,7 @@ import argparse
 import glob
 import math
 import os
+import shutil
 from array import array
 
 import ROOT
@@ -28,6 +29,19 @@ def require_branches(chain, names):
     missing = [name for name in names if not chain.GetBranch(name)]
     if missing:
         raise RuntimeError("Missing global/outer study branches: " + ", ".join(missing))
+
+
+def collect_figure_of_merit_plots(outdir, names):
+    figure_dir = os.path.join(outdir, "figure_of_merit")
+    os.makedirs(figure_dir, exist_ok=True)
+    copied = 0
+    for name in names:
+        source = os.path.join(outdir, name)
+        if not os.path.isfile(source):
+            continue
+        shutil.copy2(source, os.path.join(figure_dir, name))
+        copied += 1
+    print(f"Collected {copied} figure-of-merit plots in {figure_dir}")
 
 
 def print_zero_selection_diagnostics(
@@ -849,6 +863,16 @@ def main():
         if obj:
             obj.Write()
     output.Close()
+    collect_figure_of_merit_plots(
+        args.outdir,
+        (
+            "global_qoverpt_direction_aligned_residual_outerpt20.png",
+            "outer_qoverpt_direction_aligned_residual_outerpt20.png",
+            "inverse_pt_relative_residual_global_vs_outer_outerpt20.png",
+            "asymmetry_mean_global_outer_vs_pt.png",
+            "asymmetry_sigma_global_outer_vs_pt.png",
+        ),
+    )
     print(f"Wrote DGL global-vs-outer plots and ROOT objects to {args.outdir}")
 
 

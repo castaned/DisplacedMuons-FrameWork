@@ -3,6 +3,7 @@
 import argparse
 import glob
 import os
+import shutil
 from array import array
 
 import ROOT
@@ -10,6 +11,19 @@ import ROOT
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
+
+
+def collect_figure_of_merit_plots(outdir, names):
+    figure_dir = os.path.join(outdir, "figure_of_merit")
+    os.makedirs(figure_dir, exist_ok=True)
+    copied = 0
+    for name in names:
+        source = os.path.join(outdir, name)
+        if not os.path.isfile(source):
+            continue
+        shutil.copy2(source, os.path.join(figure_dir, name))
+        copied += 1
+    print(f"Collected {copied} figure-of-merit plots in {figure_dir}")
 
 
 def collect_files(patterns):
@@ -1182,6 +1196,15 @@ def main():
         if obj:
             obj.Write()
     output_root.Close()
+    collect_figure_of_merit_plots(
+        args.outdir,
+        (
+            "dsa_qoverpt_response_to_gen_entry_comparison.png",
+            "dsa_qoverpt_response_vs_gen_entry_pt.png",
+            "dsa_response_to_gen_entry_comparison.png",
+            "dsa_response_vs_gen_entry_pt.png",
+        ),
+    )
     print(f"Wrote DSA bias-study plots and ROOT objects to {args.outdir}")
 
 
