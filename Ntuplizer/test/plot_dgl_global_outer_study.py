@@ -9,6 +9,8 @@ from array import array
 
 import ROOT
 
+from plot_dsa_bias_study import draw_generator_kinematics
+
 
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
@@ -410,6 +412,32 @@ def main():
         required.extend(["gen_entry_valid", "gen_entry_pt"])
     else:
         print("Generator entry branches not found; GEN-vs-RECO plots will be skipped")
+    generator_kinematic_branches = (
+        "gen_status1_nMuon",
+        "gen_entry_valid",
+        "gen_entry_pdgId",
+        "gen_entry_charge",
+        "gen_entry_pt",
+        "gen_entry_eta",
+        "gen_entry_phi",
+        "gen_entry_vy",
+        "gen_status3_nMuon",
+        "gen_initial_valid",
+        "gen_initial_pdgId",
+        "gen_initial_pt",
+        "gen_initial_eta",
+        "gen_initial_phi",
+        "gen_initial_vy",
+    )
+    has_generator_kinematics = all(
+        chain.GetBranch(name) for name in generator_kinematic_branches
+    )
+    if has_generator_kinematics:
+        required.extend(
+            name for name in generator_kinematic_branches if name not in required
+        )
+    else:
+        print("Complete generator kinematics not found; basic GEN plots will be skipped")
     if has_explicit_outer:
         required.extend(
             ["dmu_dgl_hasOuterTrack", "dmu_dgl_outer_pt", "dmu_dgl_outer_side"]
@@ -527,6 +555,14 @@ def main():
     selection = "1"
 
     objects = []
+    if has_generator_kinematics:
+        generator_dir = os.path.join(args.outdir, "generator_level")
+        os.makedirs(generator_dir, exist_ok=True)
+        objects.extend(draw_generator_kinematics(chain, generator_dir))
+        print(
+            "Generator-level plots use the same DGL-selected event sample and were "
+            f"written to {generator_dir}"
+        )
     h_global_correlation = make_hist2d(
         chain,
         "h_upper_lower_pt_global",
