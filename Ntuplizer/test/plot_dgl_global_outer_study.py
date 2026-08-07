@@ -99,6 +99,28 @@ def draw_two_pt_correlations(hist_global, hist_outer, output_path):
     canvas.SaveAs(output_path)
 
 
+def draw_global_outer_side_correlations(hist_upper, hist_lower, output_path):
+    hist_upper.GetXaxis().SetTitle("upper p_{T}^{global} [GeV]")
+    hist_upper.GetYaxis().SetTitle("upper p_{T}^{outer} [GeV]")
+    hist_lower.GetXaxis().SetTitle("lower p_{T}^{global} [GeV]")
+    hist_lower.GetYaxis().SetTitle("lower p_{T}^{outer} [GeV]")
+    canvas = ROOT.TCanvas("c_global_outer_pt_upper_lower", "", 1400, 650)
+    canvas.Divide(2, 1)
+    diagonals = []
+    for pad_index, hist in enumerate((hist_upper, hist_lower), start=1):
+        canvas.cd(pad_index)
+        ROOT.gPad.SetRightMargin(0.14)
+        ROOT.gPad.SetLogz()
+        hist.Draw("COLZ")
+        diagonal = ROOT.TLine(0.0, 0.0, 500.0, 500.0)
+        diagonal.SetLineColor(ROOT.kRed + 1)
+        diagonal.SetLineStyle(2)
+        diagonal.SetLineWidth(2)
+        diagonal.Draw()
+        diagonals.append(diagonal)
+    canvas.SaveAs(output_path)
+
+
 def draw_asymmetry_correlation(hist, output_path):
     hist.GetXaxis().SetTitle("global-track upper/lower p_{T} asymmetry")
     hist.GetYaxis().SetTitle("outer-track upper/lower p_{T} asymmetry")
@@ -271,7 +293,7 @@ def main():
         "--selection",
         choices=("raw", "quality", "resolution"),
         default="resolution",
-        help="Stored common DSA pair selection used for both momentum estimators",
+        help="Symmetric DGL pair selection used for both momentum estimators",
     )
     args = parser.parse_args()
 
@@ -286,57 +308,84 @@ def main():
         raise RuntimeError("The input chain contains no events")
 
     required = [
-        "evt_dsa_nReco",
-        "evt_dsa_oppositeSides",
-        "evt_dsa_passRawPair",
-        "evt_dsa_passQualityPair",
-        "evt_dsa_passResolutionPair",
-        "evt_dsa_index_upper",
-        "evt_dsa_index_lower",
+        "ndmu",
         "dmu_isDGL",
-        "dmu_isDSA",
         "dmu_dgl_pt",
         "dmu_dgl_eta",
         "dmu_dgl_phi",
         "dmu_dgl_ptError",
-        "dmu_dgl_charge",
-        "dmu_dsa_pt",
-        "dmu_dsa_eta",
-        "dmu_dsa_phi",
-        "dmu_dsa_ptError",
-        "dmu_dsa_charge",
+        "dmu_dgl_nMuonHits",
+        "dmu_dgl_nValidStripHits",
     ]
+    has_explicit_outer = bool(
+        chain.GetBranch("dmu_dgl_hasOuterTrack")
+        and chain.GetBranch("dmu_dgl_outer_pt")
+        and chain.GetBranch("dmu_dgl_outer_side")
+    )
+    if has_explicit_outer:
+        required.extend(
+            ["dmu_dgl_hasOuterTrack", "dmu_dgl_outer_pt", "dmu_dgl_outer_side"]
+        )
+    else:
+        required.extend(["dmu_isDSA", "dmu_dsa_pt", "dmu_dsa_side"])
     require_branches(chain, required)
 
-    upper = "evt_dsa_index_upper"
-    lower = "evt_dsa_index_lower"
-    matched_pair = (
-        "evt_dsa_nReco==2 && evt_dsa_oppositeSides && "
-        f"{upper}>=0 && {lower}>=0 && "
-        f"dmu_isDGL[{upper}] && dmu_isDGL[{lower}] && "
-        f"dmu_isDSA[{upper}] && dmu_isDSA[{lower}]"
-    )
-    selection_flag = {
-        "raw": "evt_dsa_passRawPair",
-        "quality": "evt_dsa_passQualityPair",
-        "resolution": "evt_dsa_passResolutionPair",
-    }[args.selection]
-    selection = f"({matched_pair}) && {selection_flag}"
+    if has_explicit_outer:
+        outer_branch = "dmu_dgl_outer_pt"
+        side_branch = "dmu_dgl_outer_side"
+        candidate = (
+            "dmu_isDGL && dmu_dgl_hasOuterTrack && "
+            "dmu_dgl_pt>0 && dmu_dgl_outer_pt>0 && dmu_dgl_outer_side!=0"
+        )
+        print("Using explicit DGL-associated outer-track branches")
+    else:
+        outer_branch = "dmu_dsa_pt"
+        side_branch = "dmu_dsa_side"
+        candidate = (
+            "dmu_isDGL && dmu_isDSA && "
+            "dmu_dgl_pt>0 && dmu_dsa_pt>0 && dmu_dsa_side!=0"
+        )
+        print("Using legacy same-index dmu_dsa_pt as the DGL outer-track momentum")
 
-    global_upper = f"dmu_dgl_pt[{upper}]"
-    global_lower = f"dmu_dgl_pt[{lower}]"
-    outer_upper = f"dmu_dsa_pt[{upper}]"
-    outer_lower = f"dmu_dsa_pt[{lower}]"
-    positive_pt = (
-        f"{global_upper}>0 && {global_lower}>0 && {outer_upper}>0 && {outer_lower}>0"
+    upper_candidate = f"({candidate}) && {side_branch}>0"
+    lower_candidate = f"({candidate}) && {side_branch}<0"
+    global_upper = f"Sum$(dmu_dgl_pt*({upper_candidate}))"
+    global_lower = f"Sum$(dmu_dgl_pt*({lower_candidate}))"
+    outer_upper = f"Sum$({outer_branch}*({upper_candidate}))"
+    outer_lower = f"Sum$({outer_branch}*({lower_candidate}))"
+    eta_upper = f"Sum$(dmu_dgl_eta*({upper_candidate}))"
+    eta_lower = f"Sum$(dmu_dgl_eta*({lower_candidate}))"
+    phi_upper = f"Sum$(dmu_dgl_phi*({upper_candidate}))"
+    phi_lower = f"Sum$(dmu_dgl_phi*({lower_candidate}))"
+    cos_alpha = (
+        f"tanh({eta_upper})*tanh({eta_lower}) + "
+        f"cos(({phi_upper})-({phi_lower}))/(cosh({eta_upper})*cosh({eta_lower}))"
     )
-    selection = f"({selection}) && ({positive_pt})"
+
+    raw_selection = (
+        f"Sum$({candidate})==2 && "
+        f"Sum$({upper_candidate})==1 && Sum$({lower_candidate})==1 && "
+        f"({cos_alpha})<{math.cos(2.8):.9f}"
+    )
+    quality_candidate = (
+        f"({candidate}) && dmu_dgl_pt>20 && abs(dmu_dgl_eta)<0.9 && "
+        "dmu_dgl_nMuonHits>12 && dmu_dgl_nValidStripHits>5"
+    )
+    resolution_candidate = (
+        f"({quality_candidate}) && dmu_dgl_ptError/dmu_dgl_pt<0.3"
+    )
+    selection = {
+        "raw": raw_selection,
+        "quality": f"({raw_selection}) && Sum$({quality_candidate})==2",
+        "resolution": f"({raw_selection}) && Sum$({resolution_candidate})==2",
+    }[args.selection]
+
     global_asymmetry = f"2.0*({global_lower}-{global_upper})/({global_lower}+{global_upper})"
     outer_asymmetry = f"2.0*({outer_lower}-{outer_upper})/({outer_lower}+{outer_upper})"
 
     print(f"Input files: {len(files)}")
     print(f"Input events: {chain.GetEntries()}")
-    print(f"Matched DGL+outer pairs ({args.selection}): {chain.GetEntries(selection)}")
+    print(f"Selected upper/lower DGL pairs ({args.selection}): {chain.GetEntries(selection)}")
 
     objects = []
     h_global_correlation = make_hist2d(
@@ -368,6 +417,37 @@ def main():
         h_global_correlation,
         h_outer_correlation,
         os.path.join(args.outdir, "upper_lower_pt_global_outer.png"),
+    )
+
+    h_upper_global_outer = make_hist2d(
+        chain,
+        "h_upper_global_outer_pt",
+        f"{outer_upper}:{global_upper}",
+        selection,
+        100,
+        0.0,
+        500.0,
+        100,
+        0.0,
+        500.0,
+    )
+    h_lower_global_outer = make_hist2d(
+        chain,
+        "h_lower_global_outer_pt",
+        f"{outer_lower}:{global_lower}",
+        selection,
+        100,
+        0.0,
+        500.0,
+        100,
+        0.0,
+        500.0,
+    )
+    objects.extend([h_upper_global_outer, h_lower_global_outer])
+    draw_global_outer_side_correlations(
+        h_upper_global_outer,
+        h_lower_global_outer,
+        os.path.join(args.outdir, "global_vs_outer_pt_upper_lower.png"),
     )
 
     h_global_asymmetry = make_hist(

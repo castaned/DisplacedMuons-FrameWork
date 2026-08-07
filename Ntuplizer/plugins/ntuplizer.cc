@@ -251,6 +251,9 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       Float_t evt_dsa_gen_cosAlpha_lower_reversed = 0.;
 
       Float_t dmu_dgl_pt[200] = {0.};
+      Int_t dmu_dgl_hasOuterTrack[200] = {0};
+      Float_t dmu_dgl_outer_pt[200] = {0.};
+      Int_t dmu_dgl_outer_side[200] = {0};
       Float_t dmu_dgl_eta[200] = {0.};
       Float_t dmu_dgl_phi[200] = {0.};
       Float_t dmu_dgl_ptError[200] = {0.};
@@ -451,6 +454,9 @@ void ntuplizer::beginJob() {
    tree_out->Branch("evt_dsa_gen_cosAlpha_lower_reversed", &evt_dsa_gen_cosAlpha_lower_reversed, "evt_dsa_gen_cosAlpha_lower_reversed/F");
    // dmu_dgl
    tree_out->Branch("dmu_dgl_pt", dmu_dgl_pt, "dmu_dgl_pt[ndmu]/F");
+   tree_out->Branch("dmu_dgl_hasOuterTrack", dmu_dgl_hasOuterTrack, "dmu_dgl_hasOuterTrack[ndmu]/I");
+   tree_out->Branch("dmu_dgl_outer_pt", dmu_dgl_outer_pt, "dmu_dgl_outer_pt[ndmu]/F");
+   tree_out->Branch("dmu_dgl_outer_side", dmu_dgl_outer_side, "dmu_dgl_outer_side[ndmu]/I");
    tree_out->Branch("dmu_dgl_eta", dmu_dgl_eta, "dmu_dgl_eta[ndmu]/F");
    tree_out->Branch("dmu_dgl_phi", dmu_dgl_phi, "dmu_dgl_phi[ndmu]/F");
    tree_out->Branch("dmu_dgl_ptError", dmu_dgl_ptError, "dmu_dgl_ptError[ndmu]/F");
@@ -642,6 +648,19 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
      if ( dmuon.isGlobalMuon() ) {
        const reco::Track* globalTrack = (dmuon.combinedMuon()).get();
        dmu_dgl_pt[ndmu] = globalTrack->pt();
+       dmu_dgl_hasOuterTrack[ndmu] = 0;
+       dmu_dgl_outer_pt[ndmu] = 0.f;
+       dmu_dgl_outer_side[ndmu] = 0;
+       const reco::TrackRef outerTrackRef = dmuon.standAloneMuon();
+       if (outerTrackRef.isNonnull() && outerTrackRef.isAvailable()) {
+         dmu_dgl_hasOuterTrack[ndmu] = 1;
+         dmu_dgl_outer_pt[ndmu] = outerTrackRef->pt();
+         if (outerTrackRef->extra().isNonnull() && outerTrackRef->extra().isAvailable()) {
+           const float midpointY = 0.5f * (
+             outerTrackRef->innerPosition().y() + outerTrackRef->outerPosition().y());
+           dmu_dgl_outer_side[ndmu] = (midpointY > 0.f ? 1 : (midpointY < 0.f ? -1 : 0));
+         }
+       }
        dmu_dgl_eta[ndmu] = globalTrack->eta();
        dmu_dgl_phi[ndmu] = globalTrack->phi();
        dmu_dgl_ptError[ndmu] = globalTrack->ptError();
@@ -658,6 +677,9 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        dmu_dgl_nhits[ndmu] = globalTrack->hitPattern().numberOfValidHits();
      } else {
        dmu_dgl_pt[ndmu] = 0;
+       dmu_dgl_hasOuterTrack[ndmu] = 0;
+       dmu_dgl_outer_pt[ndmu] = 0;
+       dmu_dgl_outer_side[ndmu] = 0;
        dmu_dgl_eta[ndmu] = 0;
        dmu_dgl_phi[ndmu] = 0;
        dmu_dgl_ptError[ndmu] = 0;
