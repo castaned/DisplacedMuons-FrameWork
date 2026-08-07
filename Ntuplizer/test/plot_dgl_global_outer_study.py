@@ -30,6 +30,47 @@ def require_branches(chain, names):
         raise RuntimeError("Missing global/outer study branches: " + ", ".join(missing))
 
 
+def print_zero_selection_diagnostics(
+    path,
+    tree_name,
+    candidate,
+    upper_candidate,
+    lower_candidate,
+    raw_selection,
+    quality_candidate,
+    resolution_candidate,
+):
+    diagnostic = ROOT.TChain(tree_name)
+    diagnostic.Add(path)
+    checks = (
+        ("events in first file", ""),
+        ("events with at least two DGL muons", "Sum$(dmu_isDGL)>=2"),
+        ("events with at least two usable DGL outer tracks", f"Sum$({candidate})>=2"),
+        (
+            "events with at least one upper and one lower candidate",
+            f"Sum$({upper_candidate})>=1 && Sum$({lower_candidate})>=1",
+        ),
+        (
+            "events with exactly one upper and one lower candidate",
+            f"Sum$({candidate})==2 && Sum$({upper_candidate})==1 && "
+            f"Sum$({lower_candidate})==1",
+        ),
+        ("events passing the opposite-direction pair requirement", raw_selection),
+        (
+            "events where both candidates pass DGL quality cuts",
+            f"({raw_selection}) && Sum$({quality_candidate})==2",
+        ),
+        (
+            "events where both candidates also pass pT-error cuts",
+            f"({raw_selection}) && Sum$({resolution_candidate})==2",
+        ),
+    )
+    print(f"Zero-selection diagnostic using first file: {path}")
+    for label, cut in checks:
+        count = diagnostic.GetEntries(cut) if cut else diagnostic.GetEntries()
+        print(f"  {label}: {count}")
+
+
 def make_hist(chain, name, expression, selection, bins, xmin, xmax):
     hist = ROOT.TH1F(name, "", bins, xmin, xmax)
     chain.Draw(f"{expression}>>{name}", selection, "goff")
@@ -392,7 +433,37 @@ def main():
 
     print(f"Input files: {len(files)}")
     print(f"Input events: {chain.GetEntries()}")
-    print(f"Selected upper/lower DGL pairs ({args.selection}): {chain.GetEntries(selection)}")
+
+    # Read remote files once, then make all plots from a compact local selected tree.
+    selected_path = os.path.join(args.outdir, "selected_dgl_pairs.root")
+    chain.SetBranchStatus("*", 0)
+    for branch_name in required:
+        chain.SetBranchStatus(branch_name, 1)
+    selected_file = ROOT.TFile(selected_path, "RECREATE")
+    selected_tree = chain.CopyTree(selection)
+    selected_count = selected_tree.GetEntries()
+    selected_tree.Write()
+    selected_file.Close()
+    print(f"Selected upper/lower DGL pairs ({args.selection}): {selected_count}")
+
+    if selected_count == 0:
+        print_zero_selection_diagnostics(
+            files[0],
+            args.tree,
+            candidate,
+            upper_candidate,
+            lower_candidate,
+            raw_selection,
+            quality_candidate,
+            resolution_candidate,
+        )
+        raise RuntimeError(
+            "No upper/lower DGL pairs passed the selection; no PNG files were produced"
+        )
+
+    chain = ROOT.TChain(args.tree)
+    chain.Add(selected_path)
+    selection = "1"
 
     objects = []
     h_global_correlation = make_hist2d(
