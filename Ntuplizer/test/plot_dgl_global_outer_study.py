@@ -403,6 +403,13 @@ def main():
         and chain.GetBranch("dmu_dgl_outer_pt")
         and chain.GetBranch("dmu_dgl_outer_side")
     )
+    has_gen_entry = bool(
+        chain.GetBranch("gen_entry_valid") and chain.GetBranch("gen_entry_pt")
+    )
+    if has_gen_entry:
+        required.extend(["gen_entry_valid", "gen_entry_pt"])
+    else:
+        print("Generator entry branches not found; GEN-vs-RECO plots will be skipped")
     if has_explicit_outer:
         required.extend(
             ["dmu_dgl_hasOuterTrack", "dmu_dgl_outer_pt", "dmu_dgl_outer_side"]
@@ -780,6 +787,74 @@ def main():
         ),
     )
 
+    if has_gen_entry:
+        truth_selection = f"({outer_pt20_selection}) && gen_entry_valid && gen_entry_pt>0"
+        global_upper_gen_response = f"(({global_upper})-gen_entry_pt)/gen_entry_pt"
+        global_lower_gen_response = f"(({global_lower})-gen_entry_pt)/gen_entry_pt"
+        outer_upper_gen_response = f"(({outer_upper})-gen_entry_pt)/gen_entry_pt"
+        outer_lower_gen_response = f"(({outer_lower})-gen_entry_pt)/gen_entry_pt"
+
+        h_global_upper_gen_response = make_hist(
+            chain,
+            "h_global_upper_response_to_gen_entry",
+            global_upper_gen_response,
+            truth_selection,
+            160,
+            -2.0,
+            6.0,
+        )
+        h_global_lower_gen_response = make_hist(
+            chain,
+            "h_global_lower_response_to_gen_entry",
+            global_lower_gen_response,
+            truth_selection,
+            160,
+            -2.0,
+            6.0,
+        )
+        h_outer_upper_gen_response = make_hist(
+            chain,
+            "h_outer_upper_response_to_gen_entry",
+            outer_upper_gen_response,
+            truth_selection,
+            160,
+            -2.0,
+            6.0,
+        )
+        h_outer_lower_gen_response = make_hist(
+            chain,
+            "h_outer_lower_response_to_gen_entry",
+            outer_lower_gen_response,
+            truth_selection,
+            160,
+            -2.0,
+            6.0,
+        )
+        objects.extend(
+            [
+                h_global_upper_gen_response,
+                h_global_lower_gen_response,
+                h_outer_upper_gen_response,
+                h_outer_lower_gen_response,
+            ]
+        )
+        draw_overlay(
+            h_global_upper_gen_response,
+            h_global_lower_gen_response,
+            "(p_{T}^{global}-p_{T}^{gen entry})/p_{T}^{gen entry}",
+            os.path.join(args.outdir, "gen_response_upper_lower_global.png"),
+            "upper DGL global track",
+            "lower DGL global track",
+        )
+        draw_overlay(
+            h_outer_upper_gen_response,
+            h_outer_lower_gen_response,
+            "(p_{T}^{outer}-p_{T}^{gen entry})/p_{T}^{gen entry}",
+            os.path.join(args.outdir, "gen_response_upper_lower_outer.png"),
+            "upper DGL outer track",
+            "lower DGL outer track",
+        )
+
     h_asymmetry_correlation = make_hist2d(
         chain,
         "h_outer_vs_global_pt_asymmetry",
@@ -824,40 +899,6 @@ def main():
         os.path.join(args.outdir, "outer_over_global_pt_upper_lower.png"),
     )
 
-    common_average_pt = (
-        f"0.25*({global_upper}+{global_lower}+{outer_upper}+{outer_lower})"
-    )
-    trend_selection = selection
-    bin_expression = common_average_pt
-    bin_label = "common average reconstructed p_{T} [GeV]"
-
-    graphs, trend_hists, functions, bin_label = make_trend_graphs(
-        chain,
-        trend_selection,
-        bin_expression,
-        bin_label,
-        global_asymmetry,
-        outer_asymmetry,
-    )
-    objects.extend(trend_hists)
-    objects.extend(functions)
-    objects.extend(graphs.values())
-    draw_trend(
-        graphs["mean_global"],
-        graphs["mean_outer"],
-        "Gaussian mean of upper/lower p_{T} asymmetry",
-        bin_label,
-        os.path.join(args.outdir, "asymmetry_mean_global_outer_vs_pt.png"),
-    )
-    draw_trend(
-        graphs["sigma_global"],
-        graphs["sigma_outer"],
-        "Gaussian #sigma of upper/lower p_{T} asymmetry",
-        bin_label,
-        os.path.join(args.outdir, "asymmetry_sigma_global_outer_vs_pt.png"),
-        is_sigma=True,
-    )
-
     output = ROOT.TFile(os.path.join(args.outdir, "dgl_global_outer_study.root"), "RECREATE")
     for obj in objects:
         if obj:
@@ -868,9 +909,8 @@ def main():
         (
             "global_qoverpt_direction_aligned_residual_outerpt20.png",
             "outer_qoverpt_direction_aligned_residual_outerpt20.png",
-            "inverse_pt_relative_residual_global_vs_outer_outerpt20.png",
-            "asymmetry_mean_global_outer_vs_pt.png",
-            "asymmetry_sigma_global_outer_vs_pt.png",
+            "gen_response_upper_lower_global.png",
+            "gen_response_upper_lower_outer.png",
         ),
     )
     print(f"Wrote DGL global-vs-outer plots and ROOT objects to {args.outdir}")
