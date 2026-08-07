@@ -379,6 +379,8 @@ def main():
         "dmu_dgl_eta",
         "dmu_dgl_phi",
         "dmu_dgl_ptError",
+        "dmu_dgl_charge",
+        "dmu_dsa_charge",
         "dmu_dgl_nMuonHits",
         "dmu_dgl_nValidStripHits",
     ]
@@ -423,6 +425,22 @@ def main():
     global_lower = f"Sum$(dmu_dgl_pt*({lower_candidate}))"
     outer_upper = f"Sum$({outer_branch}*({upper_candidate}))"
     outer_lower = f"Sum$({outer_branch}*({lower_candidate}))"
+    global_qoverpt_upper = (
+        f"Sum$((dmu_dgl_charge/(dmu_dgl_pt+(dmu_dgl_pt==0)))"
+        f"*({upper_candidate}))"
+    )
+    global_qoverpt_lower = (
+        f"Sum$((dmu_dgl_charge/(dmu_dgl_pt+(dmu_dgl_pt==0)))"
+        f"*({lower_candidate}))"
+    )
+    outer_qoverpt_upper = (
+        f"Sum$((dmu_dsa_charge/(({outer_branch})+(({outer_branch})==0)))"
+        f"*({upper_candidate}))"
+    )
+    outer_qoverpt_lower = (
+        f"Sum$((dmu_dsa_charge/(({outer_branch})+(({outer_branch})==0)))"
+        f"*({lower_candidate}))"
+    )
     eta_upper = f"Sum$(dmu_dgl_eta*({upper_candidate}))"
     eta_lower = f"Sum$(dmu_dgl_eta*({lower_candidate}))"
     phi_upper = f"Sum$(dmu_dgl_phi*({upper_candidate}))"
@@ -694,6 +712,80 @@ def main():
         os.path.join(
             args.outdir,
             "inverse_pt_relative_residual_global_vs_outer_outerpt20.png",
+        ),
+        "global-track fit; outer p_{T}>20 GeV",
+        "outer-track fit; outer p_{T}>20 GeV",
+    )
+
+    global_qoverpt_residual = (
+        f"(({global_qoverpt_upper})-({global_qoverpt_lower}))"
+        f"/abs({global_qoverpt_lower})"
+    )
+    outer_qoverpt_residual = (
+        f"(({outer_qoverpt_upper})-({outer_qoverpt_lower}))"
+        f"/abs({outer_qoverpt_lower})"
+    )
+    h_global_qoverpt_residual = make_hist(
+        chain,
+        "h_global_qoverpt_relative_residual",
+        global_qoverpt_residual,
+        selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    h_outer_qoverpt_residual = make_hist(
+        chain,
+        "h_outer_qoverpt_relative_residual",
+        outer_qoverpt_residual,
+        selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    objects.extend([h_global_qoverpt_residual, h_outer_qoverpt_residual])
+    draw_overlay(
+        h_global_qoverpt_residual,
+        h_outer_qoverpt_residual,
+        "[(q/p_{T})^{upper}-(q/p_{T})^{lower}]/|(q/p_{T})^{lower}|",
+        os.path.join(
+            args.outdir, "qoverpt_relative_residual_global_vs_outer.png"
+        ),
+        "global-track fit",
+        "outer-track fit",
+    )
+
+    h_global_qoverpt_residual_outer_pt20 = make_hist(
+        chain,
+        "h_global_qoverpt_relative_residual_outer_pt20",
+        global_qoverpt_residual,
+        outer_pt20_selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    h_outer_qoverpt_residual_outer_pt20 = make_hist(
+        chain,
+        "h_outer_qoverpt_relative_residual_outer_pt20",
+        outer_qoverpt_residual,
+        outer_pt20_selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    objects.extend(
+        [
+            h_global_qoverpt_residual_outer_pt20,
+            h_outer_qoverpt_residual_outer_pt20,
+        ]
+    )
+    draw_overlay(
+        h_global_qoverpt_residual_outer_pt20,
+        h_outer_qoverpt_residual_outer_pt20,
+        "[(q/p_{T})^{upper}-(q/p_{T})^{lower}]/|(q/p_{T})^{lower}|",
+        os.path.join(
+            args.outdir,
+            "qoverpt_relative_residual_global_vs_outer_outerpt20.png",
         ),
         "global-track fit; outer p_{T}>20 GeV",
         "outer-track fit; outer p_{T}>20 GeV",
