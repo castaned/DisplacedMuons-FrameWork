@@ -645,6 +645,59 @@ def main():
         "[(1/p_{T}^{upper})-(1/p_{T}^{lower})]/(1/p_{T}^{lower})",
         os.path.join(args.outdir, "global_inverse_pt_relative_residual.png"),
     )
+    draw_overlay(
+        h_global_inverse_pt_residual,
+        h_outer_inverse_pt_residual,
+        "[(1/p_{T}^{upper})-(1/p_{T}^{lower})]/(1/p_{T}^{lower})",
+        os.path.join(
+            args.outdir, "inverse_pt_relative_residual_global_vs_outer.png"
+        ),
+        "global-track fit",
+        "outer-track fit",
+    )
+
+    outer_pt20_selection = (
+        f"({selection}) && ({outer_upper})>20 && ({outer_lower})>20"
+    )
+    print(
+        "Selected pairs with upper and lower outer-track pT > 20 GeV: "
+        f"{chain.GetEntries(outer_pt20_selection)}"
+    )
+    h_global_inverse_pt_residual_outer_pt20 = make_hist(
+        chain,
+        "h_global_inverse_pt_relative_residual_outer_pt20",
+        global_inverse_pt_residual,
+        outer_pt20_selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    h_outer_inverse_pt_residual_outer_pt20 = make_hist(
+        chain,
+        "h_outer_inverse_pt_relative_residual_outer_pt20",
+        outer_inverse_pt_residual,
+        outer_pt20_selection,
+        200,
+        -5.0,
+        5.0,
+    )
+    objects.extend(
+        [
+            h_global_inverse_pt_residual_outer_pt20,
+            h_outer_inverse_pt_residual_outer_pt20,
+        ]
+    )
+    draw_overlay(
+        h_global_inverse_pt_residual_outer_pt20,
+        h_outer_inverse_pt_residual_outer_pt20,
+        "[(1/p_{T}^{upper})-(1/p_{T}^{lower})]/(1/p_{T}^{lower})",
+        os.path.join(
+            args.outdir,
+            "inverse_pt_relative_residual_global_vs_outer_outerpt20.png",
+        ),
+        "global-track fit; outer p_{T}>20 GeV",
+        "outer-track fit; outer p_{T}>20 GeV",
+    )
 
     h_asymmetry_correlation = make_hist2d(
         chain,
