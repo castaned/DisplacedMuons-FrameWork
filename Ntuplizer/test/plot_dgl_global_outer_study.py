@@ -202,6 +202,44 @@ def draw_global_outer_side_correlations(hist_upper, hist_lower, output_path):
     canvas.SaveAs(output_path)
 
 
+def draw_upper_lower_ratio_correlations(hist_global, hist_outer, output_path):
+    hist_global.GetXaxis().SetTitle("upper p_{T}^{global} [GeV]")
+    hist_global.GetYaxis().SetTitle("p_{T}^{lower,global}/p_{T}^{upper,global}")
+    hist_outer.GetXaxis().SetTitle("upper p_{T}^{outer} [GeV]")
+    hist_outer.GetYaxis().SetTitle("p_{T}^{lower,outer}/p_{T}^{upper,outer}")
+    common_maximum = max(hist_global.GetMaximum(), hist_outer.GetMaximum())
+    canvas = ROOT.TCanvas("c_upper_lower_pt_ratio_global_outer", "", 1400, 650)
+    canvas.Divide(2, 1)
+    profiles = []
+    unity_lines = []
+    for pad_index, (hist, label) in enumerate(
+        ((hist_global, "global"), (hist_outer, "outer")), start=1
+    ):
+        canvas.cd(pad_index)
+        ROOT.gPad.SetRightMargin(0.14)
+        ROOT.gPad.SetLogz()
+        hist.SetMinimum(1.0)
+        if common_maximum > 1.0:
+            hist.SetMaximum(common_maximum)
+        hist.Draw("COLZ")
+        unity = ROOT.TLine(20.0, 1.0, 500.0, 1.0)
+        unity.SetLineColor(ROOT.kRed + 1)
+        unity.SetLineStyle(2)
+        unity.SetLineWidth(2)
+        unity.Draw()
+        unity_lines.append(unity)
+        profile = hist.ProfileX(f"p_lower_over_upper_{label}_vs_upper_pt")
+        profile.SetDirectory(0)
+        profile.SetLineColor(ROOT.kBlack)
+        profile.SetMarkerColor(ROOT.kBlack)
+        profile.SetMarkerStyle(20)
+        profile.SetMarkerSize(0.7)
+        profile.Draw("E1 SAME")
+        profiles.append(profile)
+    canvas.SaveAs(output_path)
+    return profiles
+
+
 def draw_asymmetry_correlation(hist, output_path):
     hist.GetXaxis().SetTitle("global-track upper/lower p_{T} asymmetry")
     hist.GetYaxis().SetTitle("outer-track upper/lower p_{T} asymmetry")
@@ -731,6 +769,41 @@ def main():
         "Selected pairs with upper and lower outer-track pT > 20 GeV: "
         f"{chain.GetEntries(outer_pt20_selection)}"
     )
+    h_global_lower_over_upper_vs_upper = make_hist2d(
+        chain,
+        "h_global_lower_over_upper_vs_upper_pt",
+        f"({global_lower}/{global_upper}):({global_upper})",
+        outer_pt20_selection,
+        96,
+        20.0,
+        500.0,
+        120,
+        0.0,
+        3.0,
+    )
+    h_outer_lower_over_upper_vs_upper = make_hist2d(
+        chain,
+        "h_outer_lower_over_upper_vs_upper_pt",
+        f"({outer_lower}/{outer_upper}):({outer_upper})",
+        outer_pt20_selection,
+        96,
+        20.0,
+        500.0,
+        120,
+        0.0,
+        3.0,
+    )
+    objects.extend(
+        [h_global_lower_over_upper_vs_upper, h_outer_lower_over_upper_vs_upper]
+    )
+    ratio_profiles = draw_upper_lower_ratio_correlations(
+        h_global_lower_over_upper_vs_upper,
+        h_outer_lower_over_upper_vs_upper,
+        os.path.join(
+            args.outdir, "lower_over_upper_vs_upper_pt_global_outer_outerpt20.png"
+        ),
+    )
+    objects.extend(ratio_profiles)
     h_global_inverse_pt_residual_outer_pt20 = make_hist(
         chain,
         "h_global_inverse_pt_relative_residual_outer_pt20",
@@ -940,6 +1013,7 @@ def main():
             "outer_qoverpt_direction_aligned_residual_outerpt20.png",
             "gen_response_upper_lower_global.png",
             "gen_response_upper_lower_outer.png",
+            "lower_over_upper_vs_upper_pt_global_outer_outerpt20.png",
         ),
     )
     print(f"Wrote DGL global-vs-outer plots and ROOT objects to {args.outdir}")
