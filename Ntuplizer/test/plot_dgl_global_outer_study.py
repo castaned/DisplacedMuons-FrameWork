@@ -52,7 +52,14 @@ def normalize(hist):
         hist.Scale(1.0 / integral)
 
 
-def draw_overlay(hist_global, hist_outer, xtitle, output_path):
+def draw_overlay(
+    hist_global,
+    hist_outer,
+    xtitle,
+    output_path,
+    first_label="global-track fit",
+    second_label="outer-track fit",
+):
     normalize(hist_global)
     normalize(hist_outer)
     hist_global.SetLineColor(ROOT.kRed + 1)
@@ -71,8 +78,8 @@ def draw_overlay(hist_global, hist_outer, xtitle, output_path):
     legend = ROOT.TLegend(0.62, 0.76, 0.88, 0.88)
     legend.SetBorderSize(0)
     legend.SetFillStyle(0)
-    legend.AddEntry(hist_global, "global-track fit", "l")
-    legend.AddEntry(hist_outer, "outer-track fit", "l")
+    legend.AddEntry(hist_global, first_label, "l")
+    legend.AddEntry(hist_outer, second_label, "l")
     legend.Draw()
     canvas.SaveAs(output_path)
 
@@ -476,6 +483,22 @@ def main():
         h_lower_outer_pt,
         "lower DGL p_{T} [GeV]",
         os.path.join(args.outdir, "pt_lower_global_vs_outer.png"),
+    )
+    draw_overlay(
+        h_upper_global_pt,
+        h_lower_global_pt,
+        "DGL global-track p_{T} [GeV]",
+        os.path.join(args.outdir, "pt_upper_vs_lower_global.png"),
+        "upper DGL",
+        "lower DGL",
+    )
+    draw_overlay(
+        h_upper_outer_pt,
+        h_lower_outer_pt,
+        "DGL outer-track p_{T} [GeV]",
+        os.path.join(args.outdir, "pt_upper_vs_lower_outer.png"),
+        "upper DGL",
+        "lower DGL",
     )
 
     h_global_asymmetry = make_hist(
