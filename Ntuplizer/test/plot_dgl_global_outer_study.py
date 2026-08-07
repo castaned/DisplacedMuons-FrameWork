@@ -383,7 +383,7 @@ def main():
         side_branch = "dmu_dgl_outer_side"
         candidate = (
             "dmu_isDGL && dmu_dgl_hasOuterTrack && "
-            "dmu_dgl_pt>0 && dmu_dgl_outer_pt>0 && dmu_dgl_outer_side!=0"
+            "dmu_dgl_pt>0 && dmu_dgl_outer_pt>0"
         )
         print("Using explicit DGL-associated outer-track branches")
     else:
@@ -391,12 +391,17 @@ def main():
         side_branch = "dmu_dsa_side"
         candidate = (
             "dmu_isDGL && dmu_isDSA && "
-            "dmu_dgl_pt>0 && dmu_dsa_pt>0 && dmu_dsa_side!=0"
+            "dmu_dgl_pt>0 && dmu_dsa_pt>0"
         )
         print("Using legacy same-index dmu_dsa_pt as the DGL outer-track momentum")
 
-    upper_candidate = f"({candidate}) && {side_branch}>0"
-    lower_candidate = f"({candidate}) && {side_branch}<0"
+    # MiniAOD may not retain the TrackExtra positions needed by the geometric side
+    # branch. For collision-like DGL tracks, the y direction is given by sin(phi).
+    side_expression = (
+        f"({side_branch}) + (({side_branch})==0)*sin(dmu_dgl_phi)"
+    )
+    upper_candidate = f"({candidate}) && ({side_expression})>0"
+    lower_candidate = f"({candidate}) && ({side_expression})<0"
     global_upper = f"Sum$(dmu_dgl_pt*({upper_candidate}))"
     global_lower = f"Sum$(dmu_dgl_pt*({lower_candidate}))"
     outer_upper = f"Sum$({outer_branch}*({upper_candidate}))"
